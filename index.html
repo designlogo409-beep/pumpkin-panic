@@ -365,12 +365,12 @@
 
   // five rounds: ghosts keep their earlier tuning in rounds 1-2, then witches take over and get faster each round
   const ROUNDS = [
-    // waves: [seconds into the round, enemies added]. Every round needs 20 pumpkins.
+    // waves: [seconds into the round, enemies added]. Same schedule is used by solo and multiplayer host.
     { target: 20, kind: 'ghost', count: 3, waves: [[0, 1], [20, 1], [40, 1]], respawn: 20, speed: 4.55 },
-    { target: 20, kind: 'ghost', count: 6, waves: [[0, 1], [20, 2], [40, 3]], respawn: 10, speed: 5.0 },
+    { target: 20, kind: 'ghost', count: 6, waves: [[0, 1], [10, 1], [20, 1], [30, 1], [40, 1], [50, 1]], respawn: 10, speed: 5.0 },
     { target: 20, kind: 'witch', count: 2, waves: [[0, 1], [30, 1]], respawn: 10, speed: 5.3, vision: 36, giveUp: 11, palette: 0 },
-    { target: 20, kind: 'witch', count: 3, waves: [[0, 1], [30, 2]], respawn: 10, speed: 5.5, vision: 38, giveUp: 12, palette: 1 },
-    { target: 20, kind: 'witch', count: 6, waves: [[0, 1], [30, 5]], respawn: 10, speed: 5.8, vision: 40, giveUp: 13, palette: 2 }
+    { target: 20, kind: 'witch', count: 3, waves: [[0, 1], [20, 1], [40, 1]], respawn: 10, speed: 5.5, vision: 38, giveUp: 12, palette: 1 },
+    { target: 20, kind: 'witch', count: 6, waves: [[0, 1], [10, 1], [20, 1], [30, 1], [40, 1], [50, 1]], respawn: 10, speed: 5.8, vision: 40, giveUp: 13, palette: 2 }
   ];
   const ROUND_TIME = 60, SPAWN_BUDGET = 120, POOL = 64;
   const DOOR = { x: 0, z: -35.3, r: 3.0 };   // approach the front door with the forged key to unlock it
