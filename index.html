@@ -218,6 +218,19 @@
   </div>
   <div id="toast">+1 pumpkin!</div>
   <div id="taunt"></div>
+  <button id="settingsOpen" type="button" style="position:absolute;right:14px;top:104px;z-index:20;padding:8px 12px;border-radius:8px;border:1px solid #8d6bb5;background:#211238;color:#fff;font-weight:700;cursor:pointer">⚙ Settings</button>
+  <div id="settingsPanel" hidden style="position:absolute;z-index:40;inset:50% auto auto 50%;transform:translate(-50%,-50%);width:min(92vw,520px);max-height:88vh;overflow:auto;background:#1b1030;border:2px solid #8b5db5;border-radius:14px;padding:20px;color:#fff;box-shadow:0 12px 50px #000b">
+    <h2 style="margin:0 0 12px;color:#ffb45e">Game Settings</h2>
+    <h3>Keyboard controls</h3>
+    <div id="keySettings" style="display:grid;grid-template-columns:1fr 1fr;gap:10px"></div>
+    <p style="font-size:12px;color:#cbb9df">Click a key field and press the key you want to use.</p>
+    <h3>Mouse</h3>
+    <label>Mouse sensitivity <input id="mouseSens" type="range" min="0.5" max="3" step="0.1" value="1"></label>
+    <label style="display:block;margin-top:8px"><input id="invertY" type="checkbox"> Invert mouse Y-axis</label>
+    <h3>Graphics</h3>
+    <select id="graphicsQuality" style="padding:8px;border-radius:6px"><option value="low">Low</option><option value="medium" selected>Medium</option><option value="high">High</option></select>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px"><button id="settingsReset" type="button">Reset</button><button id="settingsClose" type="button">Save & close</button></div>
+  </div>
 
   <div id="board" hidden></div>
   <div id="banner" hidden></div>
@@ -235,7 +248,7 @@
       </div>
       <p class="tag" id="startMsg">Five 60-second rounds. Follow the golden light beams: only beaming pumpkins can be collected. Gather enough to forge a magic key, then reach the haunted house door <strong>before the friendly ghosts hug you</strong>.</p>
       <dl class="keys">
-        <dt><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></dt><dd>Run around</dd>
+        <dt><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></dt><dd>Default movement (customize in Settings)</dd>
         <dt><kbd>Space</kbd></dt><dd>Jump. Hop through the gap in the broken wall</dd>
         <dt>Mouse</dt><dd>Turn the camera. Click the game to capture it</dd>
         <dt><kbd>&larr;</kbd><kbd>&rarr;</kbd></dt><dd>Turn the camera if the mouse is blocked. Dragging works too</dd>
@@ -360,7 +373,7 @@
     { target: 20, kind: 'witch', count: 6, waves: [[0, 1], [30, 5]], respawn: 10, speed: 5.8, vision: 40, giveUp: 13, palette: 2 }
   ];
   const ROUND_TIME = 60, SPAWN_BUDGET = 120, POOL = 64;
-  const DOOR = { x: 0, z: -35.3, r: 2.4 };   // stand this close to the door with the key to unlock it
+  const DOOR = { x: 0, z: -35.3, r: 3.0 };   // approach the front door with the forged key to unlock it
   // the four entrances: front, left, right, back. (x,z) is where to stand outside; (cx,cz) the wall centre; (nx,nz) points outward
   const DOORS = [
     { x: 0, z: -35.3, r: 2.4, cx: 0, cz: -37.3, nx: 0, nz: 1 },
@@ -401,6 +414,9 @@
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(FOG);
   scene.fog = new THREE.FogExp2(FOG, 0.02);
+  const stormFlash = new THREE.DirectionalLight(0xddeaff, 0);
+  stormFlash.position.set(-20, 65, -30); scene.add(stormFlash);
+  let stormFlashTimer = 0;
   const camera = new THREE.PerspectiveCamera(62, 1, 0.1, 260);
 
   let W = 0, H = 0;
@@ -975,20 +991,31 @@
     }
   }
   function buildWalls() {
-    // broken graveyard wall across the dirt path: tall ends, a low rubble gap (x -1.6..1.6) only a jump clears
-    addWall(-16, -16.5, -1.6, -15.5, 3.6);
-    addWall(1.6, -16.5, 16, -15.5, 3.6);
-    addWall(-1.6, -16.5, 1.6, -15.5, 0.9);
-    [-2.4, 2.4].forEach((x) => {   // lanterns on the wall tops mark the gap
-      const lamp = makePumpkin(0.8, false, true);   // decorative: no glow beam, never collectible
+    // Broken graveyard wall across the dirt path. The central 5.6-unit opening
+    // is a true walk-through gap: players no longer need to jump over rubble.
+    addWall(-16, -16.5, -2.8, -15.5, 3.6);
+    addWall(2.8, -16.5, 16, -15.5, 3.6);
+    [-3.6, 3.6].forEach((x) => { // lanterns mark the two edges of the opening
+      const lamp = makePumpkin(0.8, false, true);
       lamp.position.set(x, 3.6, -16);
       lamp.rotation.y = Math.PI;
       scene.add(lamp);
     });
-    // L-shaped ruin to hide behind, and a lone wall on the east side
-    addWall(-25, -4, -24, 12, 3.4);
-    addWall(-25, 12, -13, 13, 3.4);
-    addWall(23, 4, 24, 18, 3.4);
+
+    // West-side L-shaped ruin, split into sections with clear walking gaps.
+    addWall(-25, -4, -24, 2.8, 3.4);
+    addWall(-25, 6.0, -24, 12, 3.4);
+    addWall(-25, 12, -19.5, 13, 3.4);
+    addWall(-16.5, 12, -13, 13, 3.4);
+
+    // East-side broken boundary: separated pieces leave two broad passages.
+    addWall(23, 4, 24, 9.0, 3.4);
+    addWall(23, 12.2, 24, 18, 3.4);
+    addWall(16, 18, 20, 19, 3.0);
+
+    // A short southern ruin adds cover without sealing the route around it.
+    addWall(-17, 22, -11, 23, 3.0);
+    addWall(-7.5, 22, -1.5, 23, 3.0);
   }
 
   function makeTree() {
@@ -1432,6 +1459,14 @@
 
   /* ===================== input ===================== */
   const keys = {};
+  const DEFAULT_BINDINGS = { forward:'KeyW', backward:'KeyS', left:'KeyA', right:'KeyD', jump:'Space' };
+  let bindings = Object.assign({}, DEFAULT_BINDINGS);
+  let mouseMultiplier = 1, invertMouseY = false;
+  try { const saved = JSON.parse(localStorage.getItem('pp-controls') || '{}'); bindings = Object.assign({}, DEFAULT_BINDINGS, saved.bindings || {}); mouseMultiplier = saved.mouseMultiplier || 1; invertMouseY = !!saved.invertMouseY; } catch(e) {}
+  const actionLabels = { forward:'Move forward', backward:'Move backward', left:'Move left', right:'Move right', jump:'Jump' };
+  function codeLabel(code) { return code === 'Space' ? 'Space' : code.replace(/^Key/, '').replace(/^Arrow/, ''); }
+  function saveSettings() { try { localStorage.setItem('pp-controls', JSON.stringify({ bindings, mouseMultiplier, invertMouseY })); localStorage.setItem('pp-graphics', document.getElementById('graphicsQuality').value); } catch(e) {} }
+  function applyGraphics() { const q = document.getElementById('graphicsQuality').value; renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, q === 'low' ? 1 : q === 'medium' ? 1.5 : 2)); renderer.shadowMap.enabled = q !== 'low'; }
   const touch = { mx: 0, my: 0, moveId: null, lookId: null, ox: 0, oy: 0, lx: 0, ly: 0 };
   let dragging = false;
   // may the local player steer right now? Solo: while a round runs. Online: during a match, until eliminated.
@@ -1442,13 +1477,29 @@
     return !!e && e.t !== 'dead';
   }
 
+  const settingsPanel = document.getElementById('settingsPanel');
+  const keySettings = document.getElementById('keySettings');
+  function renderKeySettings() {
+    keySettings.innerHTML = '';
+    Object.keys(actionLabels).forEach(action => {
+      const wrap = document.createElement('label'); wrap.textContent = actionLabels[action];
+      const input = document.createElement('button'); input.type = 'button'; input.textContent = codeLabel(bindings[action]); input.style.cssText = 'display:block;margin-top:4px;padding:7px;background:#38244e;color:white;border:1px solid #9c78bd;border-radius:6px';
+      input.addEventListener('click', () => { input.textContent = 'Press a key…'; const capture = ev => { ev.preventDefault(); if (['Escape','Tab'].includes(ev.key)) return; bindings[action] = ev.code; window.removeEventListener('keydown', capture, true); renderKeySettings(); saveSettings(); }; window.addEventListener('keydown', capture, true); });
+      wrap.appendChild(input); keySettings.appendChild(wrap);
+    });
+  }
+  document.getElementById('settingsOpen').addEventListener('click', () => { renderKeySettings(); document.getElementById('mouseSens').value = mouseMultiplier; document.getElementById('invertY').checked = invertMouseY; try { document.getElementById('graphicsQuality').value = localStorage.getItem('pp-graphics') || 'medium'; } catch(e) {} settingsPanel.hidden = false; });
+  document.getElementById('settingsClose').addEventListener('click', () => { mouseMultiplier = Number(document.getElementById('mouseSens').value); invertMouseY = document.getElementById('invertY').checked; saveSettings(); applyGraphics(); settingsPanel.hidden = true; });
+  document.getElementById('settingsReset').addEventListener('click', () => { bindings = Object.assign({}, DEFAULT_BINDINGS); mouseMultiplier = 1; invertMouseY = false; renderKeySettings(); document.getElementById('mouseSens').value = 1; document.getElementById('invertY').checked = false; saveSettings(); });
   window.addEventListener('keydown', (e) => {
     keys[e.code] = true;
     if (inputOn() && (/^Arrow/.test(e.code) || e.code === 'Space')) e.preventDefault();
-    if (e.code === 'Space' && !e.repeat && inputOn()) jumpBuf = 0.14;
+    if (e.code === bindings.jump && !e.repeat && inputOn()) jumpBuf = 0.14;
   });
   window.addEventListener('keyup', (e) => { keys[e.code] = false; });
   window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+  try { document.getElementById('graphicsQuality').value = localStorage.getItem('pp-graphics') || 'medium'; } catch(e) {}
+  applyGraphics();
 
   function lockPointer() {
     try {
@@ -1457,8 +1508,8 @@
     } catch (err) { /* mouse capture is optional */ }
   }
   function look(dx, dy) {
-    state.yaw -= dx * CFG.lookSens;
-    state.pitch = clamp(state.pitch + dy * CFG.lookSens, 0.12, 1.2);
+    state.yaw -= dx * CFG.lookSens * mouseMultiplier;
+    state.pitch = clamp(state.pitch + dy * CFG.lookSens * mouseMultiplier * (invertMouseY ? -1 : 1), 0.12, 1.2);
   }
   canvas.addEventListener('mousedown', () => {
     dragging = true;
@@ -1746,8 +1797,8 @@
 
   /* ===================== per-frame updates ===================== */
   function updatePlayer(dt) {
-    let ix = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0) + touch.mx;
-    let iy = (keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0) + touch.my;
+    let ix = (keys[bindings.right] ? 1 : 0) - (keys[bindings.left] ? 1 : 0) + touch.mx;
+    let iy = (keys[bindings.forward] ? 1 : 0) - (keys[bindings.backward] ? 1 : 0) + touch.my;
     const len = Math.hypot(ix, iy);
     if (len > 1) { ix /= len; iy /= len; }
 
@@ -1997,7 +2048,7 @@
       if (unlockT > 0.9) {                       // the door swings smoothly inward
         const k = Math.min(1, (unlockT - 0.9) / 1.2), e = k * k * (3 - 2 * k);
         doorPivot.rotation.y = 1.75 * e;
-        if (e > 0.35) doorOpen = true;
+        if (e > 0.35 && !doorOpen) { doorOpen = true; showToast('Door open! Go inside for your gift'); }
       }
       if (unlockT > 2.1 && giftOpenT < 0) {      // the mystery gift pops up on the table inside the house
         if (!gift.visible) { gift.visible = true; burst(0, 2, -44.6, undefined, 24); showToast('Walk in and open the gift!'); }
@@ -2015,6 +2066,17 @@
         if (giftOpenT > 1.0) { gift.visible = false; finishRound(); }
       }
     }
+  }
+
+  function updateStormSky(dt) {
+    const storm = state.round >= 2;
+    const sky = storm ? 0x03040b : FOG;
+    scene.background.setHex(sky); scene.fog.color.setHex(sky); scene.fog.density = storm ? 0.012 : 0.02;
+    if (storm) {
+      stormFlashTimer -= dt;
+      if (stormFlashTimer <= 0) stormFlashTimer = 2.8 + Math.random() * 4.5;
+      stormFlash.intensity = stormFlashTimer > 0.12 && stormFlashTimer < 0.34 ? 3.8 : (stormFlashTimer > 0.38 && stormFlashTimer < 0.48 ? 1.8 : 0);
+    } else stormFlash.intensity = 0;
   }
 
   function updateCamera(dt) {
@@ -2042,6 +2104,7 @@
     state.t += dt;
     grassU.uTime.value = state.t;
     fit();
+    updateStormSky(dt);
 
     let nearest = 99;
     if (state.mode === 'mp') {
