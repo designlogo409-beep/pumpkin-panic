@@ -1,0 +1,3083 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Pumpkin Panic</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Creepster&family=Fredoka:wght@400;600&display=swap">
+<style>
+  /* Layout: full-bleed 3D stage. Score pinned top, ghost speech bubble bottom, start and caught cards centered. */
+  :root {
+    --bg: #2a1248;
+    --ink: #f6ecff;
+    --muted: #c3aee6;
+    --pumpkin: #ff7a1a;
+    --pumpkin-deep: #b24a00;
+    --glow: #ffc15e;
+    --violet: #8a5cff;
+    --panel: rgba(26, 11, 46, 0.88);
+    --line: rgba(255, 170, 90, 0.45);
+    --display: 'Creepster', 'Impact', system-ui, sans-serif;
+    --body: 'Fredoka', 'Trebuchet MS', system-ui, sans-serif;
+    color-scheme: dark;
+  }
+  html { box-sizing: border-box; height: 100%; }
+  *, *::before, *::after { box-sizing: inherit; }
+  body {
+    position: relative;
+    height: 100%;
+    overflow: hidden;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 16px;
+    padding-block: 0;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  #c { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: crosshair; }
+  #danger {
+    position: absolute; inset: 0; pointer-events: none; opacity: 0;
+    background: radial-gradient(ellipse at center, transparent 50%, rgba(255, 50, 90, 0.6) 100%);
+  }
+  #ui { position: relative; height: 100%; pointer-events: none; }
+
+  .hud { display: grid; grid-template-columns: 1fr auto 1fr; align-items: start; gap: 8px; padding-top: 12px; }
+  .col { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .col.right { align-items: flex-end; text-align: right; }
+  .stat {
+    font-family: var(--display); font-size: clamp(30px, 6vw, 44px); line-height: 1; letter-spacing: 0.04em;
+    color: var(--glow); text-shadow: 0 2px 0 #4a1d00, 0 0 18px rgba(255, 122, 26, 0.55);
+    font-variant-numeric: tabular-nums;
+  }
+  .stat small {
+    display: block; margin-bottom: 4px; font-family: var(--body); font-weight: 600; font-size: 12px;
+    letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); text-shadow: none;
+  }
+  .stat.right { text-align: right; }
+
+  #toast {
+    position: absolute; left: 50%; top: 22%; transform: translateX(-50%);
+    font-family: var(--display); font-size: clamp(30px, 6vw, 46px); color: var(--glow);
+    text-shadow: 0 3px 0 #4a1d00, 0 0 22px rgba(255, 122, 26, 0.7); opacity: 0; white-space: nowrap;
+  }
+  #toast.pop { animation: pop 0.9s ease-out; }
+  @keyframes pop {
+    0% { opacity: 0; transform: translate(-50%, 14px) scale(0.8); }
+    20% { opacity: 1; transform: translate(-50%, 0) scale(1.1); }
+    100% { opacity: 0; transform: translate(-50%, -26px) scale(1); }
+  }
+
+  #taunt {
+    position: absolute; left: 50%; bottom: 9%; transform: translateX(-50%);
+    max-width: min(92%, 380px); width: max-content;
+    background: #fbf7ff; color: #2a1248; font-weight: 600; font-size: 16px; text-align: center;
+    padding: 9px 16px; border-radius: 14px; opacity: 0; transition: opacity 0.25s;
+  }
+  #taunt::after {
+    content: ''; position: absolute; left: 50%; top: 100%; margin-left: -8px;
+    border: 8px solid transparent; border-top-color: #fbf7ff;
+  }
+  #taunt.on { opacity: 1; }
+
+  .veil {
+    position: absolute; inset: 0; display: grid; place-items: center; padding-block: 16px;
+    background: radial-gradient(ellipse at center, rgba(20, 8, 38, 0.55), rgba(20, 8, 38, 0.82));
+    pointer-events: auto;
+  }
+  .veil[hidden], #jumpBtn[hidden] { display: none !important; }
+  .card {
+    width: 100%; max-width: 440px; padding: 26px 24px 24px; background: var(--panel);
+    border: 2px solid var(--line); border-radius: 6px; box-shadow: 0 8px 0 rgba(0, 0, 0, 0.45);
+    text-align: center; max-height: 100%; overflow-y: auto;
+  }
+  h1, h2 {
+    margin: 0; font-family: var(--display); font-weight: 400; letter-spacing: 0.04em; text-wrap: balance;
+    color: var(--pumpkin); text-shadow: 0 3px 0 #4a1d00, 0 0 24px rgba(255, 122, 26, 0.45);
+  }
+  h1 { font-size: clamp(52px, 12vw, 80px); line-height: 0.95; }
+  h2 { font-size: clamp(46px, 10vw, 64px); line-height: 1; }
+  .tag { margin: 12px 0 0; color: var(--muted); font-size: 17px; line-height: 1.4; text-wrap: balance; }
+  .tag strong { color: var(--glow); font-weight: 600; }
+  .keys { display: grid; grid-template-columns: auto 1fr; gap: 8px 14px; margin: 20px 0 22px; text-align: left; align-items: center; font-size: 15px; }
+  .keys dt { justify-self: end; }
+  .keys dd { margin: 0; color: var(--muted); }
+  kbd {
+    display: inline-block; min-width: 26px; padding: 2px 7px; text-align: center; font: 600 13px var(--body);
+    color: var(--ink); background: #3b1f63; border: 1px solid #6a43a8; border-bottom-width: 3px; border-radius: 4px;
+  }
+  .final { margin: 18px 0 4px; font-family: var(--display); font-size: 40px; color: var(--glow); font-variant-numeric: tabular-nums; }
+  .final small { display: block; font-family: var(--body); font-size: 12px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
+  .best { margin: 0 0 20px; color: var(--muted); font-size: 15px; }
+
+  .btn {
+    font: 600 19px var(--body); letter-spacing: 0.03em; color: #2b1000; background: var(--pumpkin);
+    border: 0; border-bottom: 5px solid var(--pumpkin-deep); border-radius: 6px; padding: 12px 34px; cursor: pointer;
+  }
+  .btn:hover { background: #ff8e3a; }
+  .btn:active { transform: translateY(2px); border-bottom-width: 3px; }
+  .btn:focus-visible { outline: 3px solid var(--glow); outline-offset: 3px; }
+  .btn:disabled { opacity: 0.5; cursor: default; }
+
+  .stat.sm { font-size: clamp(20px, 4.8vw, 28px); }
+  .stat em { font-style: normal; font-size: 0.62em; color: var(--muted); text-shadow: none; margin-left: 2px; }
+  .stat.timer { text-align: center; font-size: clamp(38px, 9vw, 56px); min-width: 2.2ch; }
+  .stat.timer.warn { color: #ff5a6e; text-shadow: 0 2px 0 #4a0010, 0 0 18px rgba(255, 60, 90, 0.7); }
+  .keytxt { font-size: 0.78em; letter-spacing: 0.02em; }
+  .keytxt.on { color: #9dffb0; text-shadow: 0 2px 0 #0a3a1a, 0 0 14px rgba(120, 255, 160, 0.55); }
+  @media (prefers-reduced-motion: no-preference) {
+    .stat.timer.warn { animation: tick 1s steps(2, jump-none) infinite; }
+    @keyframes tick { 50% { opacity: 0.55; } }
+  }
+  #jumpBtn {
+    position: absolute; right: 8px; bottom: calc(26px + env(safe-area-inset-bottom, 0px));
+    width: 78px; height: 78px; border-radius: 50%; display: none; place-items: center; pointer-events: auto;
+    font: 600 16px var(--body); letter-spacing: 0.04em; color: #2b1000; background: rgba(255, 122, 26, 0.88);
+    border: 0; border-bottom: 5px solid var(--pumpkin-deep); touch-action: none;
+  }
+  @media (pointer: coarse) { #jumpBtn { display: grid; } }
+  #stick {
+    position: fixed; width: 110px; height: 110px; border-radius: 50%; display: none; pointer-events: none;
+    border: 2px solid var(--line); background: rgba(255, 255, 255, 0.06);
+  }
+  #knob { position: absolute; left: 33px; top: 33px; width: 44px; height: 44px; border-radius: 50%; background: rgba(255, 193, 94, 0.7); }
+
+  .btn.alt { background: #4a2a7a; color: var(--ink); border-bottom-color: #2a1048; }
+  .btn.alt:hover { background: #5d3a95; }
+  .row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 12px; }
+  .field { display: block; margin: 14px 0 0; text-align: left; color: var(--muted); font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 600; }
+  .field input, .field select {
+    display: block; width: 100%; margin-top: 6px; padding: 10px 12px; font: 600 18px var(--body); letter-spacing: 0; text-transform: none;
+    color: var(--ink); background: #3b1f63; border: 2px solid #6a43a8; border-radius: 6px; user-select: text; -webkit-user-select: text;
+  }
+  #mpCode { text-transform: uppercase; letter-spacing: 0.3em; text-align: center; font-family: var(--display); font-size: 30px; font-weight: 400; }
+  .or { margin: 16px 0 0; color: var(--muted); font-size: 14px; }
+  .roomcode { margin: 6px 0 0; font-family: var(--display); font-size: clamp(48px, 12vw, 64px); color: var(--glow); letter-spacing: 0.18em; text-shadow: 0 3px 0 #4a1d00; }
+  .plist { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 6px; text-align: left; }
+  .plist li { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: #3b1f63; border-radius: 6px; font-weight: 600; min-width: 0; }
+  .plist li span.nm { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .plist li em { font-style: normal; font-size: 12px; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; }
+  .plist li.empty { opacity: 0.45; }
+  .dot { width: 14px; height: 14px; border-radius: 50%; flex: none; box-shadow: 0 0 8px currentColor; }
+  .modes { display: grid; gap: 8px; margin: 14px 0 0; text-align: left; }
+  .mode { display: block; padding: 10px 12px; border: 2px solid #6a43a8; border-radius: 6px; background: #2f1850; cursor: pointer; font-weight: 600; }
+  .mode input { margin-right: 8px; accent-color: var(--pumpkin); }
+  .mode small { display: block; margin: 2px 0 0 26px; color: var(--muted); font-weight: 400; font-size: 13px; }
+  .mode.on { border-color: var(--glow); background: #402268; }
+  .mode.lock { cursor: default; }
+  .note { margin: 12px 0 0; color: var(--muted); font-size: 14px; min-height: 1.4em; }
+  .note.err { color: #ff8fa0; }
+  #board {
+    position: absolute; left: max(16px, env(safe-area-inset-left, 0px)); bottom: 16px; min-width: 176px; max-width: 46vw; padding: 8px 10px;
+    background: rgba(26, 11, 46, 0.78); border: 1px solid var(--line); border-radius: 6px; font-size: 14px; font-weight: 600; pointer-events: none;
+  }
+  #board[hidden], #banner[hidden], #spec[hidden] { display: none !important; }
+  .brow { display: flex; align-items: center; gap: 8px; padding: 2px 0; min-width: 0; }
+  .brow .nm { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .brow .sc { font-variant-numeric: tabular-nums; color: var(--glow); }
+  .brow.me .nm { text-decoration: underline; text-underline-offset: 3px; }
+  .brow.dead { opacity: 0.5; }
+  #banner {
+    position: absolute; left: 50%; top: 30%; transform: translateX(-50%); width: max-content; max-width: min(92%, 560px); text-align: center;
+    font-family: var(--display); font-size: clamp(24px, 5.2vw, 40px); line-height: 1.1; color: #fff; padding: 8px 14px; border-radius: 8px;
+    text-shadow: 0 3px 0 #4a1d00, 0 0 22px rgba(255, 122, 26, 0.7); background: rgba(26, 11, 46, 0.55); opacity: 0; transition: opacity 0.3s; pointer-events: none;
+  }
+  #banner.on { opacity: 1; }
+  #spec {
+    position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); padding: 8px 16px; border-radius: 999px; font-weight: 600;
+    background: rgba(26, 11, 46, 0.85); border: 1px solid var(--line); color: var(--glow); white-space: nowrap; pointer-events: none;
+  }
+  .rtable { width: 100%; margin: 14px 0 4px; border-collapse: collapse; text-align: left; font-weight: 600; }
+  .rtable td { padding: 7px 6px; border-bottom: 1px solid rgba(255, 170, 90, 0.2); }
+  .rtable td.n { text-align: right; font-variant-numeric: tabular-nums; color: var(--glow); }
+  .rtable td.f { color: var(--muted); font-size: 14px; }
+  .mvp { margin: 14px 0 0; font-family: var(--display); font-size: clamp(26px, 6vw, 36px); color: var(--glow); text-shadow: 0 2px 0 #4a1d00; }
+  @media (prefers-reduced-motion: reduce) {
+    #banner { transition: none; }
+    #toast.pop { animation: none; opacity: 1; }
+    #taunt { transition: none; }
+  }
+</style>
+
+<canvas id="c" aria-label="Pumpkin Panic 3D game"></canvas>
+<div id="danger"></div>
+<div id="stick"><div id="knob"></div></div>
+
+<div id="ui">
+  <div class="hud">
+    <div class="col">
+      <div class="stat sm"><small>Round</small><span id="roundNum">1</span><em>/5</em></div>
+      <div class="stat sm"><small>Pumpkins</small><span id="score">0</span><em id="targetTxt">/20</em></div>
+    </div>
+    <div class="stat timer" id="timerBox"><small>Time</small><span id="timer">60</span></div>
+    <div class="col right">
+      <div class="stat sm"><small id="ghostLbl">Ghosts</small><span id="ghostCount">3</span><em id="ghostTotal">/3</em></div>
+      <div class="stat sm"><small>Key</small><span class="keytxt" id="keyTxt">Locked</span></div>
+    </div>
+  </div>
+  <div id="toast">+1 pumpkin!</div>
+  <div id="taunt"></div>
+
+  <div id="board" hidden></div>
+  <div id="banner" hidden></div>
+  <div id="spec" hidden></div>
+  <button id="jumpBtn" type="button" hidden aria-label="Jump">Jump</button>
+
+  <div class="veil" id="startVeil">
+    <div class="card">
+      <h1>Pumpkin Panic</h1>
+      <div id="ppAccount" style="margin:12px auto 14px;max-width:360px;padding:12px;border:1px solid rgba(255,170,90,.35);border-radius:10px;background:rgba(15,7,30,.55);">
+        <div id="ppAccountStatus" style="font-size:14px;color:#d8c6f4;margin-bottom:9px;">Guest player · sign in to save your progress</div>
+        <button class="btn alt" id="ppGoogleSignIn" type="button" style="min-width:190px;">Continue with Google</button>
+        <button class="btn alt" id="ppSignOut" type="button" hidden style="min-width:120px;">Sign out</button>
+        <div id="ppAuthMessage" role="status" aria-live="polite" style="font-size:12px;color:#ffc15e;margin-top:7px;"></div>
+      </div>
+      <p class="tag" id="startMsg">Five 60-second rounds. Follow the golden light beams: only beaming pumpkins can be collected. Gather enough to forge a magic key, then reach the haunted house door <strong>before the friendly ghosts hug you</strong>.</p>
+      <dl class="keys">
+        <dt><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></dt><dd>Run around</dd>
+        <dt><kbd>Space</kbd></dt><dd>Jump. Hop through the gap in the broken wall</dd>
+        <dt>Mouse</dt><dd>Turn the camera. Click the game to capture it</dd>
+        <dt><kbd>&larr;</kbd><kbd>&rarr;</kbd></dt><dd>Turn the camera if the mouse is blocked. Dragging works too</dd>
+        <dt>Touch</dt><dd>Left thumb runs, right thumb looks</dd>
+      </dl>
+      <div class="row">
+        <button class="btn" id="playBtn" type="button">Play solo</button>
+        <button class="btn alt" id="mpBtn" type="button">Play online (2-4)</button>
+      </div>
+      <p class="note" id="startNote"></p>
+    </div>
+  </div>
+
+  <div class="veil" id="mpVeil" hidden>
+    <div class="card">
+      <h2>Online</h2>
+      <div id="mpEntry">
+        <p class="tag">Create a room and share its 4-letter code, or join a friend's room. Up to 4 players share one world, one timer and the same ghosts.</p>
+        <label class="field">Your name<input id="mpName" maxlength="12" autocomplete="off" spellcheck="false"></label>
+        <div class="row"><button class="btn" id="mpCreate" type="button">Create room</button></div>
+        <p class="or">or join with a code</p>
+        <label class="field">Room code<input id="mpCode" maxlength="4" autocomplete="off" spellcheck="false" placeholder="ABCD"></label>
+        <div class="row"><button class="btn alt" id="mpJoin" type="button">Join room</button></div>
+      </div>
+      <div id="mpLobby" hidden>
+        <p class="tag">Room code. Friends type this to join:</p>
+        <div class="roomcode" id="mpRoomCode">----</div>
+        <ul class="plist" id="mpPlayers"></ul>
+        <div class="modes" id="mpModes">
+          <label class="mode" id="modeA"><input type="radio" name="mpMode" value="A"><strong>Mode A: Four Doors</strong><small>Four entrances. Each door opens once. First through a door is MVP.</small></label>
+          <label class="mode" id="modeB"><input type="radio" name="mpMode" value="B"><strong>Mode B: Last Door Standing</strong><small>Only three doors. Whoever misses out is eliminated!</small></label>
+        </div>
+        <label class="field" id="mpRoundWrap">Start at round<select id="mpRound"><option value="0">1: 3 ghosts</option><option value="1">2: 6 ghosts</option><option value="2">3: witches</option><option value="3">4: more witches</option><option value="4">5: witch swarm</option></select></label>
+        <div class="row"><button class="btn" id="mpStart" type="button">Start match</button></div>
+      </div>
+      <p class="note" id="mpNote"></p>
+      <div class="row"><button class="btn alt" id="mpBack" type="button">Back</button></div>
+    </div>
+  </div>
+
+  <div class="veil" id="mpResVeil" hidden>
+    <div class="card">
+      <h2 id="mpResTitle">Round over</h2>
+      <p class="mvp" id="mpMvp"></p>
+      <table class="rtable"><tbody id="mpResRows"></tbody></table>
+      <p class="note" id="mpResNote"></p>
+      <div class="row"><button class="btn" id="mpNext" type="button">Next round</button><button class="btn alt" id="mpToLobby" type="button">Lobby</button><button class="btn alt" id="mpExit" type="button">Leave</button></div>
+    </div>
+  </div>
+
+  <div class="veil" id="overVeil" hidden>
+    <div class="card">
+      <h2 id="overTitle">Caught!</h2>
+      <p class="tag" id="overMsg"></p>
+      <div class="final"><small>Pumpkins grabbed</small><span id="finalScore">0</span></div>
+      <p class="best" id="overBest"></p>
+      <button class="btn" id="restartBtn" type="button">Try again</button>
+    </div>
+  </div>
+
+  <div class="veil" id="winVeil" hidden>
+    <div class="card">
+      <h2 id="winTitle">Door unlocked!</h2>
+      <p class="tag" id="winMsg"></p>
+      <div class="final"><small id="winStat">Round cleared</small></div>
+      <button class="btn" id="nextBtn" type="button">Next round</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  /* ===================== utilities & config ===================== */
+  const $ = (id) => document.getElementById(id);
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const pick = (a) => a[(Math.random() * a.length) | 0];
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const TAU = Math.PI * 2;
+  const lerpAngle = (a, b, t) => {
+    const d = ((b - a + Math.PI) % TAU + TAU) % TAU - Math.PI;
+    return a + d * t;
+  };
+
+  if (typeof THREE === 'undefined') {
+    $('startMsg').textContent = 'The 3D engine could not load. Check your connection and reload the page.';
+    $('playBtn').disabled = true;
+    return;
+  }
+
+  const CFG = {
+    arena: 60,          // walkable radius
+    walk: 7.4,          // player speed
+    ghostBase: 4.1,     // ghost speed in round 1 (was 3.3 rising to 6.8 before rounds)
+    ghostRoundStep: 0.45, // extra ghost speed per round
+    vision: 34,         // how far a ghost can see the player
+    giveUp: 9,          // seconds of searching before a ghost vanishes
+    jump: 9.5,
+    gravity: 24,
+    catchDist: 1.6,
+    grabDist: 2.0,
+    camDist: 9.5,
+    lookSens: 0.0026,
+    playerRadius: 0.6,
+    start: { x: 0, z: 20 },
+    ghostStart: { x: -4, z: -10 }
+  };
+
+  // five rounds: ghosts keep their earlier tuning in rounds 1-2, then witches take over and get faster each round
+  const ROUNDS = [
+    // waves: [seconds into the round, enemies added]. Every round needs 20 pumpkins.
+    { target: 20, kind: 'ghost', count: 3, waves: [[0, 1], [20, 1], [40, 1]], respawn: 20, speed: 4.55 },
+    { target: 20, kind: 'ghost', count: 6, waves: [[0, 1], [20, 2], [40, 3]], respawn: 10, speed: 5.0 },
+    { target: 20, kind: 'witch', count: 2, waves: [[0, 1], [30, 1]], respawn: 10, speed: 5.3, vision: 36, giveUp: 11, palette: 0 },
+    { target: 20, kind: 'witch', count: 3, waves: [[0, 1], [30, 2]], respawn: 10, speed: 5.5, vision: 38, giveUp: 12, palette: 1 },
+    { target: 20, kind: 'witch', count: 6, waves: [[0, 1], [30, 5]], respawn: 10, speed: 5.8, vision: 40, giveUp: 13, palette: 2 }
+  ];
+  const ROUND_TIME = 60, SPAWN_BUDGET = 120, POOL = 64;
+  const DOOR = { x: 0, z: -35.3, r: 2.4 };   // stand this close to the door with the key to unlock it
+  // the four entrances: front, left, right, back. (x,z) is where to stand outside; (cx,cz) the wall centre; (nx,nz) points outward
+  const DOORS = [
+    { x: 0, z: -35.3, r: 2.4, cx: 0, cz: -37.3, nx: 0, nz: 1 },
+    { x: -8.9, z: -38.8, r: 2.4, cx: -6.7, cz: -38.8, nx: -1, nz: 0 },
+    { x: 8.9, z: -43.4, r: 2.4, cx: 6.7, cz: -43.4, nx: 1, nz: 0 },
+    { x: 0, z: -49.3, r: 2.4, cx: 0, cz: -46.7, nx: 0, nz: -1 }
+  ];
+  const LATE = ['Time is up. The ghosts got bored and started a card game.', 'The clock struck spooky. Back to the start.'];
+  const GIFTS = ['a bag of suspiciously fresh candy', 'a rubber ghost that squeaks', 'one (1) spooky sock', 'a tiny witch hat for your pumpkin', 'a jar of glow-in-the-dark jam'];
+  const WTAUNTS = ['Hee hee hee!', 'Pumpkin thief!', 'Nice hat. I want it!', 'Faster, little thief!', 'Cackle cackle cackle!'];
+  const WCAUGHT = ['The witch cackled and swept you off your feet.', 'Hex! Got you. She is very proud of her broom.', 'You were turned into a very confused newt for a second.', 'The witch says thanks for the pumpkins.'];
+  const TAUNTS = [
+    'BOO! ...did that work?',
+    'I just want a hug!',
+    'Is that a pumpkin? Mine now.',
+    'Wait for me!',
+    "I'm not scary, I'm friendly!",
+    'Come here, warm human!',
+    'Slow down! I float as fast as I can!',
+    'I practiced this haunt all week.'
+  ];
+  const CAUGHT = [
+    'The ghost hugged you. It was awkward for both of you.',
+    'Spooked! The ghost is very proud of itself.',
+    'Boo! Got you. It rehearsed that for ages.',
+    'You got hugged. Nobody has ever been so haunted.',
+    'The ghost says thanks for the cuddle.'
+  ];
+
+  /* ===================== renderer, scene, camera ===================== */
+  const canvas = $('c');
+  const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+  const FOG = 0x2a1248;
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(FOG);
+  scene.fog = new THREE.FogExp2(FOG, 0.02);
+  const camera = new THREE.PerspectiveCamera(62, 1, 0.1, 260);
+
+  let W = 0, H = 0;
+  function fit() {
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    if (w !== W || h !== H) {
+      W = w; H = h;
+      renderer.setSize(w, h, false);
+      camera.aspect = w / Math.max(1, h);
+      camera.updateProjectionMatrix();
+    }
+  }
+
+  /* ===================== shape helpers ===================== */
+  function mat(hex, extra) {
+    return new THREE.MeshStandardMaterial(Object.assign({ color: hex, roughness: 0.95, metalness: 0, flatShading: true }, extra || {}));
+  }
+  function glowMat(hex) {
+    return new THREE.MeshStandardMaterial({ color: hex, emissive: 0xff8a1a, emissiveIntensity: 1.3, roughness: 1, flatShading: true });
+  }
+  function shade(mesh, cast) {
+    mesh.castShadow = cast !== false;
+    mesh.receiveShadow = true;
+    return mesh;
+  }
+  function box(w, h, d, m, x, y, z) {
+    const mesh = shade(new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m));
+    mesh.position.set(x || 0, y || 0, z || 0);
+    return mesh;
+  }
+
+  /* ===================== lighting (purple moon + orange glow) ===================== */
+  const hemi = new THREE.HemisphereLight(0x9166ff, 0xff7a1a, 0.85);
+  scene.add(hemi);
+
+  const moonLight = new THREE.DirectionalLight(0xb398ff, 0.95);
+  moonLight.castShadow = true;
+  moonLight.shadow.mapSize.set(1024, 1024);
+  Object.assign(moonLight.shadow.camera, { left: -34, right: 34, top: 34, bottom: -34, near: 1, far: 140 });
+  moonLight.shadow.bias = -0.0006;
+  scene.add(moonLight, moonLight.target);
+
+  /* ===================== world ===================== */
+  const colliders = [];            // circles the player cannot enter
+  const addCollider = (x, z, r, low) => colliders.push({ x: x, z: z, r: r, low: !!low });
+  const walls = [];                // axis-aligned wall boxes: x0..x1, z0..z1, top height h
+  let doorOpen = false;            // once true the player (not the ghosts) can walk through the front door
+  let MP = null;                   // online multiplayer session; null while playing solo
+  const doors = [];                // the four house entrances (solo uses only the front one)
+
+  // may the player walk through this door? Solo: the front door once unlocked. Online: only the player who claimed it.
+  function doorPass(w) {
+    if (MP && MP.active) return !!MP.me && !!MP.W && MP.W.dr[w.di] === MP.me && doors[w.di].open > 0.35;
+    return w.di === 0 && doorOpen;
+  }
+  const distRect = (x, z, w) => Math.hypot(x - clamp(x, w.x0, w.x1), z - clamp(z, w.z0, w.z1));
+  const solidAt = (x, z, rad) => {
+    for (const c of colliders) if (Math.hypot(x - c.x, z - c.z) < c.r + rad) return true;
+    for (const w of walls) if (distRect(x, z, w) < rad) return true;
+    return false;
+  };
+  // push a circle of radius r (feet at height y) out of solids; y = -1 makes every wall solid (ghosts)
+  function resolve(p, r, y) {
+    for (const c of colliders) {
+      const dx = p.x - c.x, dz = p.z - c.z, d = Math.hypot(dx, dz), min = c.r + r;
+      if (d < min && d > 0.0001) { p.x = c.x + dx / d * min; p.z = c.z + dz / d * min; }
+    }
+    for (const w of walls) {
+      if (w.door && y >= 0 && doorPass(w)) continue;   // unlocked door: open for the player, still solid for ghosts
+      if (y >= w.h - 0.15) continue;   // feet above the top: free to pass over low rubble
+      const cx = clamp(p.x, w.x0, w.x1), cz = clamp(p.z, w.z0, w.z1);
+      const dx = p.x - cx, dz = p.z - cz, d = Math.hypot(dx, dz);
+      if (d >= r) continue;
+      if (d > 0.0001) { p.x = cx + dx / d * r; p.z = cz + dz / d * r; }
+      else {
+        const l = p.x - w.x0, rt = w.x1 - p.x, f = p.z - w.z0, b = w.z1 - p.z, m = Math.min(l, rt, f, b);
+        if (m === l) p.x = w.x0 - r; else if (m === rt) p.x = w.x1 + r; else if (m === f) p.z = w.z0 - r; else p.z = w.z1 + r;
+      }
+    }
+  }
+  function segHitsRect(ax, az, bx, bz, x0, x1, z0, z1) {
+    let t0 = 0, t1 = 1, a, b, t;
+    const dx = bx - ax, dz = bz - az;
+    if (Math.abs(dx) < 1e-9) { if (ax < x0 || ax > x1) return false; }
+    else { a = (x0 - ax) / dx; b = (x1 - ax) / dx; if (a > b) { t = a; a = b; b = t; } t0 = Math.max(t0, a); t1 = Math.min(t1, b); if (t0 > t1) return false; }
+    if (Math.abs(dz) < 1e-9) { if (az < z0 || az > z1) return false; }
+    else { a = (z0 - az) / dz; b = (z1 - az) / dz; if (a > b) { t = a; a = b; b = t; } t0 = Math.max(t0, a); t1 = Math.min(t1, b); if (t0 > t1) return false; }
+    return true;
+  }
+  function segCircleDist(ax, az, bx, bz, cx, cz) {
+    const dx = bx - ax, dz = bz - az, l2 = dx * dx + dz * dz;
+    const t = l2 > 0 ? clamp(((cx - ax) * dx + (cz - az) * dz) / l2, 0, 1) : 0;
+    return Math.hypot(ax + dx * t - cx, az + dz * t - cz);
+  }
+  // a ghost of radius rad can glide straight from a to b
+  function segClear(ax, az, bx, bz, rad) {
+    for (const c of colliders) if (segCircleDist(ax, az, bx, bz, c.x, c.z) < c.r + rad) return false;
+    for (const w of walls) if (segHitsRect(ax, az, bx, bz, w.x0 - rad, w.x1 + rad, w.z0 - rad, w.z1 + rad)) return false;
+    return true;
+  }
+  // nothing tall between a and b (low rubble and pumpkins hide nobody)
+  function losClear(ax, az, bx, bz) {
+    for (const c of colliders) if (!c.low && segCircleDist(ax, az, bx, bz, c.x, c.z) < c.r) return false;
+    for (const w of walls) if (w.h > 1.3 && segHitsRect(ax, az, bx, bz, w.x0, w.x1, w.z0, w.z1)) return false;
+    return true;
+  }
+  // surface under a point: low rubble can be landed on
+  function groundAt(x, z) {
+    let g = 0;
+    for (const w of walls) if (w.h <= 1.2 && x > w.x0 - 0.1 && x < w.x1 + 0.1 && z > w.z0 - 0.1 && z < w.z1 + 0.1) g = Math.max(g, w.h);
+    return g;
+  }
+  const houseWindows = [];
+  let houseLight, doorPivot, doorBeam, houseWallMat, houseRoof, houseCeiling, fireLight, purpleLight, fireGlow, doorLockMat;
+
+  function inHouseZone(x, z) { return Math.abs(x) < 15 && z < -25 && z > -55; }
+  function findSpot(gen, clear, maxR) {
+    for (let i = 0; i < 60; i++) {
+      const p = gen();
+      if (Math.hypot(p.x, p.z) > (maxR || CFG.arena)) continue;
+      if (inHouseZone(p.x, p.z)) continue;
+      if (Math.hypot(p.x - CFG.start.x, p.z - CFG.start.z) < 7) continue;
+      let ok = true;
+      for (const c of colliders) {
+        if (Math.hypot(p.x - c.x, p.z - c.z) < c.r + clear) { ok = false; break; }
+      }
+      if (ok && walls.some((w) => distRect(p.x, p.z, w) < clear)) ok = false;
+      if (ok) return p;
+    }
+    return null;
+  }
+  const polar = (rMin, rMax) => () => {
+    const a = rand(0, TAU), r = rand(rMin, rMax);
+    return { x: Math.cos(a) * r, z: Math.sin(a) * r };
+  };
+
+  /* ===================== swaying grass ===================== */
+  const grassU = {
+    uTime: { value: 0 },
+    uAmp: { value: window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches ? 0.25 : 1 }
+  };
+  function tuftGeometry() {
+    const pos = [], col = [], blades = 5;
+    for (let b = 0; b < blades; b++) {
+      const a = (b / blades) * TAU + rand(-0.3, 0.3), ox = Math.cos(a) * 0.14, oz = Math.sin(a) * 0.14;
+      const h = rand(0.55, 1.0), w = 0.07, lean = rand(0.05, 0.2);
+      const cx = Math.cos(a + 1.57) * w, cz = Math.sin(a + 1.57) * w;
+      pos.push(ox - cx, 0, oz - cz, ox + cx, 0, oz + cz, ox + Math.cos(a) * lean, h, oz + Math.sin(a) * lean);
+      col.push(0.55, 0.6, 0.6, 0.55, 0.6, 0.6, 1, 1, 1);   // darker roots, lighter tips
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    g.computeVertexNormals();
+    return g;
+  }
+  function windMaterial(color) {
+    const m = new THREE.MeshStandardMaterial({ color: color, roughness: 1, flatShading: true, vertexColors: true, side: THREE.DoubleSide });
+    m.onBeforeCompile = (sh) => {
+      sh.uniforms.uTime = grassU.uTime;
+      sh.uniforms.uAmp = grassU.uAmp;
+      sh.vertexShader = 'uniform float uTime;\nuniform float uAmp;\n' + sh.vertexShader.replace('#include <begin_vertex>',
+        '#include <begin_vertex>\n' +
+        'float sway = position.y;\n' +
+        'float ix = instanceMatrix[3][0];\n' +
+        'float iz = instanceMatrix[3][2];\n' +
+        'transformed.x += sin(uTime * 0.9 + ix * 0.22 + iz * 0.17) * 0.22 * sway * uAmp;\n' +
+        'transformed.z += cos(uTime * 0.7 + iz * 0.2 - ix * 0.13) * 0.14 * sway * uAmp;');
+    };
+    return m;
+  }
+
+  /* ===================== ghost navigation grid (A*) ===================== */
+  const NAV = { cs: 2, min: -68, n: 68, blocked: null, g: null, from: null, seen: null, closed: null, hi: null, hf: null, stamp: 0 };
+  const DI = [1, -1, 0, 0, 1, 1, -1, -1], DJ = [0, 0, 1, -1, 1, -1, 1, -1];
+  function buildNav() {
+    const n = NAV.n;
+    NAV.blocked = new Uint8Array(n * n);
+    NAV.g = new Float32Array(n * n);
+    NAV.from = new Int32Array(n * n);
+    NAV.seen = new Uint32Array(n * n);
+    NAV.closed = new Uint32Array(n * n);
+    NAV.hi = new Int32Array(n * n * 8);
+    NAV.hf = new Float32Array(n * n * 8);
+    for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+      const x = NAV.min + (i + 0.5) * NAV.cs, z = NAV.min + (j + 0.5) * NAV.cs;
+      if (Math.hypot(x, z) > 64 || solidAt(x, z, 1.3)) NAV.blocked[j * n + i] = 1;
+    }
+    // cells connected to the start by walking (trees, walls and the house can enclose pockets nobody can reach)
+    NAV.reach = new Uint8Array(n * n);
+    const stack = [cellOf(CFG.start.z) * n + cellOf(CFG.start.x)];
+    NAV.reach[stack[0]] = 1;
+    while (stack.length) {
+      const c = stack.pop(), ci = c % n, cj = (c / n) | 0;
+      for (let k = 0; k < 4; k++) {
+        const i = ci + DI[k], j = cj + DJ[k];
+        if (i < 0 || j < 0 || i >= n || j >= n) continue;
+        const id = j * n + i;
+        if (NAV.reach[id] || NAV.blocked[id]) continue;
+        NAV.reach[id] = 1; stack.push(id);
+      }
+    }
+  }
+  const cellOf = (v) => clamp(Math.floor((v - NAV.min) / NAV.cs), 0, NAV.n - 1);
+  function nearestFree(ci, cj) {
+    const n = NAV.n;
+    for (let r = 0; r <= 4; r++) for (let dj = -r; dj <= r; dj++) for (let di = -r; di <= r; di++) {
+      if (Math.max(Math.abs(di), Math.abs(dj)) !== r) continue;
+      const i = ci + di, j = cj + dj;
+      if (i >= 0 && j >= 0 && i < n && j < n && !NAV.blocked[j * n + i]) return j * n + i;
+    }
+    return -1;
+  }
+  // returns smoothed waypoints from (sx,sz) to the free cell nearest (tx,tz), or null
+  function findPath(sx, sz, tx, tz) {
+    const n = NAV.n, bl = NAV.blocked, Gs = NAV.g, from = NAV.from, seen = NAV.seen, closed = NAV.closed, hi = NAV.hi, hf = NAV.hf;
+    const s = cellOf(sz) * n + cellOf(sx), t = nearestFree(cellOf(tx), cellOf(tz));
+    if (t < 0) return null;
+    const stamp = ++NAV.stamp, ti = t % n, tj = (t / n) | 0;
+    let size = 0;
+    const push = (id, f) => {
+      let k = size++;
+      while (k > 0) { const p = (k - 1) >> 1; if (hf[p] <= f) break; hf[k] = hf[p]; hi[k] = hi[p]; k = p; }
+      hf[k] = f; hi[k] = id;
+    };
+    const pop = () => {
+      const top = hi[0];
+      size--;
+      if (size > 0) {
+        const f = hf[size], id = hi[size];
+        let k = 0;
+        for (;;) {
+          let c = 2 * k + 1;
+          if (c >= size) break;
+          if (c + 1 < size && hf[c + 1] < hf[c]) c++;
+          if (hf[c] >= f) break;
+          hf[k] = hf[c]; hi[k] = hi[c]; k = c;
+        }
+        hf[k] = f; hi[k] = id;
+      }
+      return top;
+    };
+    seen[s] = stamp; Gs[s] = 0; from[s] = -1; push(s, 0);
+    let found = false;
+    while (size > 0) {
+      const cur = pop();
+      if (closed[cur] === stamp) continue;
+      closed[cur] = stamp;
+      if (cur === t) { found = true; break; }
+      const ci = cur % n, cj = (cur / n) | 0;
+      for (let k = 0; k < 8; k++) {
+        const di = DI[k], dj = DJ[k], i = ci + di, j = cj + dj;
+        if (i < 0 || j < 0 || i >= n || j >= n) continue;
+        const id = j * n + i;
+        if (bl[id] || closed[id] === stamp) continue;
+        if (di && dj && (bl[cj * n + i] || bl[j * n + ci])) continue;   // no corner cutting
+        const ng = Gs[cur] + (di && dj ? 1.414 : 1);
+        if (seen[id] !== stamp || ng < Gs[id]) { seen[id] = stamp; Gs[id] = ng; from[id] = cur; push(id, ng + Math.hypot(i - ti, j - tj)); }
+      }
+    }
+    if (!found) return null;
+    const cells = [];
+    for (let c = t; c !== -1; c = from[c]) cells.push(c);
+    cells.reverse();
+    const pts = [];
+    for (let k = 1; k < cells.length; k++) pts.push({ x: NAV.min + ((cells[k] % n) + 0.5) * NAV.cs, z: NAV.min + (((cells[k] / n) | 0) + 0.5) * NAV.cs });
+    const out = [];
+    let ax = sx, az = sz, k = 0;
+    while (k < pts.length) {   // string pulling: keep only the corners that matter
+      let far = k;
+      for (let m = pts.length - 1; m > k; m--) if (segClear(ax, az, pts[m].x, pts[m].z, 1.1)) { far = m; break; }
+      out.push(pts[far]); ax = pts[far].x; az = pts[far].z; k = far + 1;
+    }
+    return out;
+  }
+
+  function buildSky() {
+    // low-poly moon with a soft halo
+    const moon = new THREE.Mesh(new THREE.SphereGeometry(7, 12, 10), new THREE.MeshBasicMaterial({ color: 0xffd9a0, fog: false }));
+    moon.position.set(-70, 48, -110);
+    const halo = new THREE.Mesh(new THREE.SphereGeometry(11, 12, 10),
+      new THREE.MeshBasicMaterial({ color: 0xff9a3a, fog: false, transparent: true, opacity: 0.14, depthWrite: false }));
+    halo.position.copy(moon.position);
+    scene.add(moon, halo);
+
+    // stars
+    const n = 260, pos = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) {
+      const a = rand(0, TAU), el = rand(0.15, 1.3), r = 170;
+      pos[i * 3] = Math.cos(a) * Math.cos(el) * r;
+      pos[i * 3 + 1] = Math.sin(el) * r;
+      pos[i * 3 + 2] = Math.sin(a) * Math.cos(el) * r;
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    scene.add(new THREE.Points(g, new THREE.PointsMaterial({ color: 0xfff1d6, size: 1.6, sizeAttenuation: false, fog: false })));
+  }
+
+  function buildGround() {
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(260, 260), mat(0x45356a));
+    ground.rotation.x = -Math.PI / 2;
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+    // dirt path from the start to the house door
+    for (let z = 26; z > -35; z -= 3) {
+      const wob = Math.sin(z * 0.18) * 1.6;
+      const tile = box(rand(2.8, 3.8), 0.06, 3.2, mat(0x6a4a38), wob + rand(-0.3, 0.3), 0.03, z);
+      tile.castShadow = false;
+      tile.rotation.y = rand(-0.2, 0.2);
+      scene.add(tile);
+    }
+
+    // grass tufts: three tinted instanced meshes, blades sway in the wind (vertex shader, no per-frame JS)
+    const d = new THREE.Object3D(), geo = tuftGeometry();
+    [0x86c27a, 0xa8b45e, 0x6fb0a4].forEach((tint) => {
+      const N = 1000, tufts = new THREE.InstancedMesh(geo, windMaterial(tint), N);
+      for (let i = 0; i < N; i++) {
+        let gx, gz;
+        do {   // no grass growing through the house floor (house + tower footprint)
+          const a = rand(0, TAU), r = Math.sqrt(Math.random()) * 64;
+          gx = Math.cos(a) * r; gz = Math.sin(a) * r;
+        } while (gx > -11.6 && gx < 7.6 && gz > -47.6 && gz < -36.4);
+        d.position.set(gx, 0, gz);
+        d.rotation.set(rand(-0.15, 0.15), rand(0, TAU), rand(-0.15, 0.15));
+        d.scale.setScalar(rand(0.8, 1.7));
+        d.updateMatrix();
+        tufts.setMatrixAt(i, d.matrix);
+      }
+      tufts.frustumCulled = false;
+      scene.add(tufts);
+    });
+  }
+
+  function buildHouse() {
+    const hx = 0, hz = -42;
+    const h = new THREE.Group();
+    h.position.set(hx, 0, hz);
+    const stone = mat(0x4b3a63), wall = mat(0x6e4d90), wood = mat(0x3a2418), roofM = mat(0x2a1640);
+    const lit = glowMat(0xffb347);
+    houseWallMat = mat(0x6e4d90, { transparent: true });   // shared by the hollow walls so they fade out while the player is inside
+    // coordinates below are house-local; solid() registers the same box as a world-space collision wall
+    const solid = (x0, x1, z0, z1, hh, extra) => walls.push(Object.assign({ x0: hx + x0, x1: hx + x1, z0: hz + z0, z1: hz + z1, h: hh }, extra));
+    const piece = (x0, x1, z0, z1, y0, y1) => h.add(box(x1 - x0, y1 - y0, z1 - z0, houseWallMat, (x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2));
+
+    // hollow shell: side walls, back wall, and a front wall with a 2.8 wide doorway
+    // left wall: doorway at z 1.8..4.6 (clear of the tower); right wall: doorway at z -2.8..0; back wall: doorway at x -1.4..1.4
+    piece(-7, -6.4, -5, 1.8, 0, 9);  solid(-7, -6.4, -5, 1.8, 9);
+    piece(-7, -6.4, 4.6, 5, 0, 9);   solid(-7, -6.4, 4.6, 5, 9);
+    piece(-7, -6.4, 1.8, 4.6, 4.4, 9);
+    piece(6.4, 7, -5, -2.8, 0, 9);   solid(6.4, 7, -5, -2.8, 9);
+    piece(6.4, 7, 0, 5, 0, 9);       solid(6.4, 7, 0, 5, 9);
+    piece(6.4, 7, -2.8, 0, 4.4, 9);
+    piece(-7, -1.4, -5, -4.4, 0, 9); solid(-7, -1.4, -5, -4.4, 9);
+    piece(1.4, 7, -5, -4.4, 0, 9);   solid(1.4, 7, -5, -4.4, 9);
+    piece(-1.4, 1.4, -5, -4.4, 4.4, 9);
+    piece(-7, -1.4, 4.4, 5, 0, 9); solid(-7, -1.4, 4.4, 5, 9);
+    piece(1.4, 7, 4.4, 5, 0, 9);   solid(1.4, 7, 4.4, 5, 9);
+    piece(-1.4, 1.4, 4.4, 5, 4.4, 9);                           // lintel over the doorway
+    solid(-1.4, 1.4, 4.45, 4.95, 4.4, { door: true, di: 0 });   // the door: solid until the key unlocks it
+    [-1.55, 1.55].forEach((x) => h.add(box(0.3, 4.5, 0.8, wood, x, 2.25, 4.7)));   // door frame
+    h.add(box(3.4, 0.3, 0.8, wood, 0, 4.55, 4.7));
+    h.add(box(13.6, 0.06, 9.6, mat(0x4a3048), 0, 0.03, 0));     // interior floor
+    h.add(box(5, 0.1, 1.6, stone, 0, 0.05, 5.8));               // stoop in front of the door
+    houseCeiling = box(13.6, 0.3, 9.6, roofM, 0, 9.15, 0);
+    h.add(houseCeiling);
+
+    houseRoof = shade(new THREE.Mesh(new THREE.ConeGeometry(10.4, 4.2, 4), roofM));
+    houseRoof.rotation.y = Math.PI / 4; houseRoof.scale.z = 0.72; houseRoof.position.y = 11.1;
+    h.add(houseRoof);
+
+    // crooked tower, now standing against the outside of the left wall
+    h.add(box(4.2, 12, 4.2, wall, -9.0, 7, -0.5));
+    solid(-11.1, -6.9, -2.6, 1.6, 13);
+    const towerRoof = shade(new THREE.Mesh(new THREE.ConeGeometry(3.6, 5, 4), roofM));
+    towerRoof.rotation.y = Math.PI / 4; towerRoof.rotation.z = 0.06; towerRoof.position.set(-9.0, 15.5, -0.5);
+    h.add(towerRoof);
+    h.add(box(1.4, 4, 1.4, stone, 4.5, 12.2, -2));              // chimney
+
+    // the door: hinged on its left edge, swings inward; its keyhole glows once the key exists
+    doorLockMat = new THREE.MeshStandardMaterial({ color: 0x2a2020, emissive: 0xffa520, emissiveIntensity: 0.15, flatShading: true });
+    doorPivot = new THREE.Group();
+    doorPivot.position.set(-1.4, 2.2, 4.7);
+    doorPivot.add(box(2.8, 4.4, 0.3, wood, 1.4, 0, 0));
+    doorPivot.add(box(0.5, 0.7, 0.14, doorLockMat, 2.3, 0.3, 0.2));
+    doorPivot.add(box(0.28, 0.28, 0.2, lit, 2.3, -0.4, 0.2));   // doorknob
+    h.add(doorPivot);
+
+    // door fittings shared by all four entrances: a coloured force field (shown once claimed) and boards (shown when sealed)
+    const fieldGeo = new THREE.BoxGeometry(2.8, 4.4, 0.08);
+    const fittings = (parent, lockMat, pivot) => {
+      const field = new THREE.Mesh(fieldGeo, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending, depthWrite: false }));
+      field.position.set(0, 2.2, 0); field.visible = false;
+      const boards = new THREE.Group();
+      [0.45, -0.45].forEach((a) => { const b = box(3.7, 0.4, 0.16, wood, 0, 2.2, 0.35); b.rotation.z = a; boards.add(b); });
+      boards.visible = false;
+      parent.add(field, boards);
+      return { pivot: pivot, lockMat: lockMat, field: field, boards: boards, open: 0, enabled: true };
+    };
+    const front = new THREE.Group();
+    front.position.set(0, 0, 4.7);
+    h.add(front);
+    doors.push(fittings(front, doorLockMat, doorPivot));
+    // the three extra entrances: same door, rotated so its +z faces outward
+    [[1, -6.7, 3.2, -Math.PI / 2, [-6.95, -6.45, 1.8, 4.6]],
+     [2, 6.7, -1.4, Math.PI / 2, [6.45, 6.95, -2.8, 0]],
+     [3, 0, -4.7, Math.PI, [-1.4, 1.4, -4.95, -4.45]]].forEach((d) => {
+      const g = new THREE.Group();
+      g.position.set(d[1], 0, d[2]); g.rotation.y = d[3];
+      h.add(g);
+      [-1.55, 1.55].forEach((x) => g.add(box(0.3, 4.5, 0.8, wood, x, 2.25, 0)));
+      g.add(box(3.4, 0.3, 0.8, wood, 0, 4.55, 0));
+      const lm = new THREE.MeshStandardMaterial({ color: 0x2a2020, emissive: 0xffa520, emissiveIntensity: 0.15, flatShading: true });
+      const pv2 = new THREE.Group();
+      pv2.position.set(-1.4, 2.2, 0);
+      pv2.add(box(2.8, 4.4, 0.3, wood, 1.4, 0, 0), box(0.5, 0.7, 0.14, lm, 2.3, 0.3, 0.2), box(0.28, 0.28, 0.2, lit, 2.3, -0.4, 0.2));
+      g.add(pv2);
+      solid(d[4][0], d[4][1], d[4][2], d[4][3], 4.4, { door: true, di: d[0] });
+      doors.push(fittings(g, lm, pv2));
+    });
+    // solo play: only the front door is a door; the other three are boarded up
+    for (let i = 1; i < 4; i++) { doors[i].enabled = false; doors[i].boards.visible = true; }
+
+    const winSpots = [[-4.2, 6, 5.05], [4.2, 6, 5.05], [-9.0, 9.5, 1.62]];
+    winSpots.forEach((p) => {
+      h.add(box(2.1, 2.5, 0.2, wood, p[0], p[1], p[2]));
+      const glass = box(1.6, 2, 0.26, lit, p[0], p[1], p[2] + 0.03);
+      glass.castShadow = false;
+      h.add(glass);
+      houseWindows.push(lit);
+    });
+
+    furnishHouse(h, hx, hz, stone, wood, roofM);
+    scene.add(h);
+
+    houseLight = new THREE.PointLight(0xff8a2a, 1.7, 30);
+    houseLight.position.set(hx, 4, hz + 9);
+    scene.add(houseLight);
+  }
+
+  // furniture, lights and Halloween decorations inside the house (house-local coordinates)
+  function furnishHouse(h, hx, hz, stone, wood, roofM) {
+    const plank = mat(0x5a3a28), cloth = mat(0x6a2a7a), iron = mat(0x2d2a35), waxM = mat(0xe8dcc8), batM = mat(0x1a1424);
+    const flameM = new THREE.MeshBasicMaterial({ color: 0xffc15e });
+    const col = (x, z, r) => addCollider(hx + x, hz + z, r);
+    const flat = (m) => { m.castShadow = false; return m; };
+    const add = (m) => { h.add(m); return m; };
+    const candle = (x, y, z, hgt) => { add(box(0.22, hgt, 0.22, waxM, x, y + hgt / 2, z)); add(flat(box(0.12, 0.2, 0.12, flameM, x, y + hgt + 0.1, z))); };
+
+    add(flat(box(6, 0.02, 4.2, cloth, 0, 0.07, -0.6)));         // rug leading to the gift table
+
+    // fireplace, back right, with a flickering fire that lights the room
+    add(box(3, 2.8, 1.2, stone, 3.9, 1.4, -3.8));
+    fireGlow = glowMat(0xff6a00);
+    add(flat(box(1.5, 0.9, 0.3, fireGlow, 3.9, 0.7, -3.15)));
+    add(box(1.4, 0.18, 0.22, wood, 3.9, 0.15, -3.1));
+    col(3.9, -3.7, 1.5);
+    fireLight = new THREE.PointLight(0xff7a2a, 1.6, 17);
+    fireLight.position.set(3.6, 2.0, -2.4);
+    h.add(fireLight);
+    purpleLight = new THREE.PointLight(0x9a6cff, 0.9, 11);
+    purpleLight.position.set(-3.8, 4.2, -2.2);
+    h.add(purpleLight);
+
+    // bookshelf, back left
+    add(box(3, 3.8, 0.7, wood, -3.8, 1.9, -4.05));
+    const bookM = [mat(0x8a2a3a), mat(0x2a5a8a), mat(0x3a7a3a), mat(0x8a6a2a)];
+    for (let row = 0; row < 3; row++) {
+      add(box(2.9, 0.1, 0.8, plank, -3.8, 1.25 * row + 0.1, -3.98));
+      for (let i = 0; i < 7; i++) add(flat(box(0.28, rand(0.6, 0.95), 0.5, bookM[(i + row) % 4], -5.0 + i * 0.4, 1.25 * row + 0.65, -4.0)));
+    }
+    add(box(2.9, 0.1, 0.8, plank, -3.8, 3.75, -3.98));
+    col(-3.8, -3.9, 1.5);
+    const bookPumpkin = makePumpkin(0.5, false, true);          // decorative jack-o-lantern on top
+    bookPumpkin.position.set(-3.0, 3.8, -4.0);
+    h.add(bookPumpkin);
+
+    // gift table, centre back: the mystery gift appears on it
+    const tbl = shade(new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.0, 1.0, 8), plank));
+    tbl.position.set(0, 0.5, -2.6); h.add(tbl);
+    const runner = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 0.95, 0.04, 8), cloth);
+    runner.position.set(0, 1.02, -2.6); h.add(runner);
+    col(0, -2.6, 1.1);
+    [-1.9, 1.9].forEach((x) => { candle(x, 0, -2.6, 1.3); col(x, -2.6, 0.35); });
+
+    // dining table with chairs, skull, candles, left side
+    add(box(2.6, 0.15, 1.5, plank, -4.3, 1.0, 1.4));
+    [[-5.4, 0.8], [-3.2, 0.8], [-5.4, 2.0], [-3.2, 2.0]].forEach((p) => add(box(0.2, 1.0, 0.2, wood, p[0], 0.5, p[1])));
+    col(-4.8, 1.4, 1.0); col(-3.8, 1.4, 1.0);
+    [[-4.3, 3.0, 0], [-4.3, -0.2, Math.PI]].forEach((c) => {
+      add(box(0.9, 0.12, 0.9, wood, c[0], 0.6, c[1]));
+      const back = box(0.9, 1.1, 0.12, wood, c[0], 1.2, c[1] + (c[2] === 0 ? 0.42 : -0.42));
+      add(back);
+      [[-0.35, -0.35], [0.35, -0.35], [-0.35, 0.35], [0.35, 0.35]].forEach((o) => add(box(0.1, 0.6, 0.1, wood, c[0] + o[0], 0.3, c[1] + o[1])));
+      col(c[0], c[1], 0.55);
+    });
+    const skull = shade(new THREE.Mesh(new THREE.SphereGeometry(0.28, 6, 5), waxM));
+    skull.position.set(-3.7, 1.4, 1.4); h.add(skull);
+    add(box(0.28, 0.16, 0.22, waxM, -3.7, 1.15, 1.5));
+    add(flat(box(0.07, 0.07, 0.04, new THREE.MeshBasicMaterial({ color: 0x120a1f }), -3.78, 1.44, 1.66)));
+    add(flat(box(0.07, 0.07, 0.04, new THREE.MeshBasicMaterial({ color: 0x120a1f }), -3.62, 1.44, 1.66)));
+    candle(-4.9, 1.075, 1.0, 0.5); candle(-4.5, 1.075, 1.9, 0.35);
+    const tablePumpkin = makePumpkin(0.4, false, true);
+    tablePumpkin.position.set(-4.4, 1.075, 1.4); h.add(tablePumpkin);
+
+    // cauldron with a green brew, right side, and a standing coffin by the front wall
+    const caul = shade(new THREE.Mesh(new THREE.CylinderGeometry(1.0, 0.8, 1.1, 8), iron));
+    caul.position.set(4.9, 0.55, 0.8); h.add(caul);
+    const brew = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.85, 0.05, 8), new THREE.MeshBasicMaterial({ color: 0x5dff7a }));
+    brew.position.set(4.9, 1.08, 0.8); h.add(brew);
+    col(4.9, 0.8, 1.2);
+    add(box(1.2, 3.2, 0.8, plank, 5.7, 1.6, 3.4));
+    add(flat(box(0.7, 2.6, 0.1, wood, 5.7, 1.7, 2.97)));
+    col(5.7, 3.4, 0.95);
+
+    // jack-o-lanterns beside the entrance
+    [[-2.2, 3.5], [2.2, 3.5]].forEach((p) => {
+      const jp = makePumpkin(0.75, false, true);
+      jp.position.set(p[0], 0.06, p[1]); jp.rotation.y = p[0] < 0 ? 0.5 : -0.5;
+      h.add(jp); col(p[0], p[1], 0.8);
+    });
+
+    // portraits with glowing eyes on the back wall
+    const eyeM = new THREE.MeshBasicMaterial({ color: 0xffd36b });
+    [[-1.6, 5.4], [0.1, 6.0], [1.9, 5.3]].forEach((p) => {
+      add(flat(box(1.3, 1.7, 0.1, wood, p[0], p[1], -4.35)));
+      add(flat(box(1.05, 1.45, 0.12, mat(0x3a2a52), p[0], p[1], -4.33)));
+      add(flat(box(0.16, 0.09, 0.05, eyeM, p[0] - 0.2, p[1] + 0.25, -4.25)));
+      add(flat(box(0.16, 0.09, 0.05, eyeM, p[0] + 0.2, p[1] + 0.25, -4.25)));
+    });
+
+    // chandelier of candles, hanging bats and corner cobwebs
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.9, 0.06, 4, 12), iron);
+    ring.rotation.x = Math.PI / 2; ring.position.set(0, 7.2, 0.5); h.add(ring);
+    add(flat(box(0.05, 1.8, 0.05, iron, 0, 8.1, 0.5)));
+    [[0.9, 0], [-0.9, 0], [0, 0.9], [0, -0.9]].forEach((o) => candle(o[0], 7.26, 0.5 + o[1], 0.35));
+    for (let i = 0; i < 4; i++) {
+      const bat = new THREE.Group();
+      bat.add(box(0.22, 0.34, 0.2, batM, 0, 0, 0), box(0.55, 0.04, 0.28, batM, 0.36, 0.08, 0), box(0.55, 0.04, 0.28, batM, -0.36, 0.08, 0));
+      bat.children[1].rotation.z = 0.5; bat.children[2].rotation.z = -0.5;
+      bat.position.set(rand(-5, 5), 8.6, rand(-3, 2.5)); bat.rotation.y = rand(0, TAU);
+      h.add(bat);
+    }
+    const webM = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false });
+    const webG = new THREE.CircleGeometry(1.3, 3); webG.rotateZ(-Math.PI / 2);
+    [[6.4, -4.4, -Math.PI / 4], [-6.4, -4.4, Math.PI / 4], [6.4, 4.4, -3 * Math.PI / 4], [-6.4, 4.4, 3 * Math.PI / 4]].forEach((c) => {
+      const web = new THREE.Mesh(webG, webM);
+      web.position.set(c[0] - Math.sign(c[0]) * 0.7, 8.3, c[1] - Math.sign(c[1]) * 0.7); web.rotation.y = c[2];
+      h.add(web);
+    });
+  }
+
+  function addWall(x0, z0, x1, z1, h) {
+    const w = { x0: Math.min(x0, x1), x1: Math.max(x0, x1), z0: Math.min(z0, z1), z1: Math.max(z0, z1), h: h };
+    walls.push(w);
+    const sx = w.x1 - w.x0, sz = w.z1 - w.z0, cx = (w.x0 + w.x1) / 2, cz = (w.z0 + w.z1) / 2;
+    const stone = mat(h > 1.2 ? 0x5a4a78 : 0x7a6a98);
+    scene.add(box(sx, h, sz, stone, cx, h / 2, cz));
+    const along = sx > sz, len = along ? sx : sz;
+    if (h > 1.2) {   // ragged, half-collapsed top edge
+      for (let u = 0.8; u < len - 0.4; u += 1.6) {
+        if (Math.random() < 0.3) continue;
+        const bh = rand(0.3, 0.9);
+        scene.add(box(along ? 1.2 : sx * 1.04, bh, along ? sz * 1.04 : 1.2, stone, along ? w.x0 + u : cx, h + bh / 2, along ? cz : w.z0 + u));
+      }
+    } else {         // loose bricks around the rubble
+      for (let i = 0; i < 5; i++) {
+        const b = box(rand(0.4, 0.8), 0.35, rand(0.4, 0.8), stone, cx + rand(-1.6, 1.6), 1.0 + (i % 2) * 0.2, cz + rand(-0.4, 0.4));
+        b.rotation.y = rand(0, TAU);
+        scene.add(b);
+      }
+    }
+  }
+  function buildWalls() {
+    // broken graveyard wall across the dirt path: tall ends, a low rubble gap (x -1.6..1.6) only a jump clears
+    addWall(-16, -16.5, -1.6, -15.5, 3.6);
+    addWall(1.6, -16.5, 16, -15.5, 3.6);
+    addWall(-1.6, -16.5, 1.6, -15.5, 0.9);
+    [-2.4, 2.4].forEach((x) => {   // lanterns on the wall tops mark the gap
+      const lamp = makePumpkin(0.8, false, true);   // decorative: no glow beam, never collectible
+      lamp.position.set(x, 3.6, -16);
+      lamp.rotation.y = Math.PI;
+      scene.add(lamp);
+    });
+    // L-shaped ruin to hide behind, and a lone wall on the east side
+    addWall(-25, -4, -24, 12, 3.4);
+    addWall(-25, 12, -13, 13, 3.4);
+    addWall(23, 4, 24, 18, 3.4);
+  }
+
+  function makeTree() {
+    const g = new THREE.Group();
+    const bark = mat(0x2d1f33), h = rand(6, 10);
+    const trunk = shade(new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.85, h, 6), bark));
+    trunk.position.y = h / 2;
+    g.add(trunk);
+
+    const n = 3 + ((Math.random() * 3) | 0);
+    for (let i = 0; i < n; i++) {
+      const len = rand(2.2, 4);
+      const pivot = new THREE.Group();
+      pivot.position.y = h * rand(0.55, 0.95);
+      pivot.rotation.y = rand(0, TAU);
+      pivot.rotation.z = rand(0.6, 1.1) * (Math.random() < 0.5 ? -1 : 1);
+      const limb = box(0.28, len, 0.28, bark, 0, len / 2, 0);
+      const twig = box(0.18, len * 0.6, 0.18, bark, 0, len / 2 + len * 0.22, 0);
+      twig.rotation.z = rand(-0.8, 0.8);
+      limb.add(twig);
+      pivot.add(limb);
+      g.add(pivot);
+    }
+
+    if (Math.random() < 0.5) {  // grumpy glowing face
+      const eye = new THREE.MeshBasicMaterial({ color: 0xffa030 });
+      const y = h * 0.42;
+      [-0.2, 0.2].forEach((x) => {
+        const e = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.16, 0.12), eye);
+        e.position.set(x, y, 0.6);
+        e.rotation.z = x < 0 ? -0.35 : 0.35;
+        g.add(e);
+      });
+      const m = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.12, 0.12), eye);
+      m.position.set(0, y - 0.35, 0.62);
+      g.add(m);
+    }
+    g.rotation.z = rand(-0.08, 0.08);
+    return g;
+  }
+
+  function buildTrees() {
+    const place = (count, rMin, rMax, maxR) => {
+      for (let i = 0; i < count; i++) {
+        const p = findSpot(polar(rMin, rMax), 4.5, maxR);
+        if (!p) continue;
+        const t = makeTree();
+        t.position.set(p.x, 0, p.z);
+        t.rotation.y = rand(0, TAU);
+        scene.add(t);
+        addCollider(p.x, p.z, 0.95);
+      }
+    };
+    place(40, 10, 56, CFG.arena);
+    place(18, 57, 64, 66);   // dense rim that fades into the fog
+  }
+
+  function buildGraves() {
+    const stone = mat(0x6d6a85);
+    for (let i = 0; i < 14; i++) {
+      const p = findSpot(() => ({ x: rand(-26, 26), z: rand(-34, -8) }), 2.2);
+      if (!p) continue;
+      const g = new THREE.Group();
+      g.add(box(1.3, 1.7, 0.4, stone, 0, 0.85, 0));
+      g.add(box(1.3, 0.5, 0.4, stone, 0, 1.85, 0));
+      g.add(box(0.14, 0.7, 0.45, mat(0x4a4860), 0, 1.0, 0.02));
+      g.position.set(p.x, 0, p.z);
+      g.rotation.set(rand(-0.1, 0.1), rand(-0.5, 0.5), rand(-0.15, 0.15));
+      scene.add(g);
+      addCollider(p.x, p.z, 0.8);
+    }
+  }
+
+  function makePumpkin(scale, glowing, face) {
+    const g = new THREE.Group();
+    const body = shade(new THREE.Mesh(new THREE.SphereGeometry(1, 8, 6),
+      mat(0xff7a1a, glowing ? { emissive: 0xff5a00, emissiveIntensity: 0.65 } : {})));
+    body.scale.set(1.15, 0.9, 1.15);
+    body.position.y = 0.9;
+    g.add(body);
+    const stem = box(0.26, 0.5, 0.26, mat(0x3f5a2a), 0, 1.85, 0);
+    stem.rotation.z = 0.25;
+    g.add(stem);
+    if (face) {
+      const lit = new THREE.MeshBasicMaterial({ color: 0xffe08a });
+      [-0.4, 0.4].forEach((x) => {
+        const e = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.3, 0.2), lit);
+        e.position.set(x, 1.08, 1.07);
+        e.rotation.z = Math.PI / 4;
+        g.add(e);
+      });
+      const m = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.22, 0.2), lit);
+      m.position.set(0, 0.66, 1.08);
+      g.add(m);
+    }
+    g.scale.setScalar(scale);
+    return g;
+  }
+
+  function buildPumpkinPatch() {
+    for (let i = 0; i < 18; i++) {
+      const p = findSpot(polar(8, 52), 2.5);
+      if (!p) continue;
+      const s = rand(0.55, 1.3);
+      const pk = makePumpkin(s, false, Math.random() < 0.55);
+      pk.position.set(p.x, 0, p.z);
+      pk.rotation.y = rand(0, TAU);
+      scene.add(pk);
+      if (s > 0.9) addCollider(p.x, p.z, s * 1.1, true);
+    }
+  }
+
+  /* ===================== characters ===================== */
+  function makePlayer() {
+    const g = new THREE.Group();
+    const m = new THREE.Group();
+    m.scale.setScalar(0.62);
+    g.add(m);
+    const skin = mat(0xf0c4a0), hood = mat(0xff7a1a), pants = mat(0x3a2f9a), shoe = mat(0x1d1530);
+    const hatM = mat(0x5b2bb8), band = mat(0xffc15e), dark = new THREE.MeshBasicMaterial({ color: 0x1d1530 });
+    const legs = [], arms = [];
+
+    [-1, 1].forEach((s) => {
+      const leg = new THREE.Group();
+      leg.position.set(s * 0.4, 1.6, 0);
+      leg.add(box(0.78, 1.6, 0.8, pants, 0, -0.8, 0));
+      leg.add(box(0.8, 0.35, 1.0, shoe, 0, -1.43, 0.1));
+      m.add(leg); legs.push(leg);
+
+      const arm = new THREE.Group();
+      arm.position.set(s * 1.25, 3.3, 0);
+      arm.add(box(0.7, 1.1, 0.75, hood, 0, -0.55, 0));
+      arm.add(box(0.7, 0.5, 0.75, skin, 0, -1.35, 0));
+      m.add(arm); arms.push(arm);
+    });
+
+    m.add(box(1.7, 1.8, 0.95, hood, 0, 2.5, 0));
+    m.add(box(1.2, 1.2, 1.2, skin, 0, 4.0, 0));
+    [-0.28, 0.28].forEach((x) => {
+      const e = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.26, 0.1), dark);
+      e.position.set(x, 4.1, 0.61);
+      m.add(e);
+    });
+    const smile = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.1, 0.1), dark);
+    smile.position.set(0, 3.76, 0.61);
+    m.add(smile);
+
+    // little witch hat
+    const brim = shade(new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.0, 0.12, 8), hatM));
+    brim.position.y = 4.66; m.add(brim);
+    const hatBand = shade(new THREE.Mesh(new THREE.CylinderGeometry(0.68, 0.7, 0.22, 6), band));
+    hatBand.position.y = 4.8; m.add(hatBand);
+    const cone = shade(new THREE.Mesh(new THREE.ConeGeometry(0.65, 1.3, 6), hatM));
+    cone.position.y = 5.5; cone.rotation.z = 0.12; m.add(cone);
+
+    return { group: g, legs: legs, arms: arms, hoodM: hood, hatM: hatM };
+  }
+
+  // ---- witches: green-skinned riders on glowing brooms, recoloured per round (purple, teal, black and crimson) ----
+  const WITCH_PALETTES = [
+    { robe: 0x6a3bc8, hat: 0x2a1640, band: 0xffc15e, skin: 0x7ed06a, trail: 0xb9ff7a },
+    { robe: 0x1f8a86, hat: 0x10232a, band: 0xff5a5a, skin: 0x9ad06a, trail: 0x5affd8 },
+    { robe: 0x2a2236, hat: 0x120a1f, band: 0xff2a4a, skin: 0x8fe07a, trail: 0xff7a2a }
+  ];
+  function witchMats() {
+    if (!witchMats.m) witchMats.m = {
+      robe: mat(0x6a3bc8), hat: mat(0x2a1640), skin: mat(0x7ed06a), nose: mat(0x5aa84a),
+      band: new THREE.MeshStandardMaterial({ color: 0xffc15e, emissive: 0xffc15e, emissiveIntensity: 0.7, flatShading: true, roughness: 1 }),
+      trail: new THREE.MeshBasicMaterial({ color: 0xb9ff7a })
+    };
+    return witchMats.m;
+  }
+  function applyWitchPalette(i) {
+    const p = WITCH_PALETTES[i % WITCH_PALETTES.length], m = witchMats();
+    m.robe.color.setHex(p.robe); m.hat.color.setHex(p.hat); m.band.color.setHex(p.band); m.band.emissive.setHex(p.band);
+    m.skin.color.setHex(p.skin); m.nose.color.setHex(p.skin).multiplyScalar(0.72); m.trail.color.setHex(p.trail);
+  }
+  function makeWitch() {
+    const M = witchMats(), g = new THREE.Group(), body = new THREE.Group();
+    body.scale.setScalar(0.95);
+    g.add(body);
+    const wood = mat(0x5a3a1c), straw = mat(0xc08a3a), hairM = mat(0x1a1220);
+    const dark = new THREE.MeshBasicMaterial({ color: 0x120a1f }), eyeM = new THREE.MeshBasicMaterial({ color: 0xfff07a });
+
+    // the broom: long stick pointing forward (+z), straw bristles flaring out behind
+    body.add(box(0.16, 0.16, 3.8, wood, 0, 0, -0.1));
+    const bristles = shade(new THREE.Mesh(new THREE.ConeGeometry(0.55, 1.5, 6), straw), false);
+    bristles.rotation.x = Math.PI / 2; bristles.position.set(0, 0, -2.55);
+    body.add(bristles);
+
+    // seated rider: robe, dangling legs, flapping cape
+    const robe = shade(new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.85, 1.7, 6), M.robe));
+    robe.position.set(0, 1.05, 0.05);
+    body.add(robe);
+    const legs = [];
+    [-1, 1].forEach((s) => {
+      const leg = new THREE.Group();
+      leg.position.set(s * 0.3, 0.2, 0.2);
+      leg.add(box(0.28, 0.9, 0.3, M.robe, 0, -0.45, 0), box(0.3, 0.22, 0.5, dark, 0, -0.95, 0.1));
+      body.add(leg); legs.push(leg);
+    });
+    const cape = new THREE.Group();
+    cape.position.set(0, 1.9, -0.45);
+    cape.add(box(1.5, 1.7, 0.1, M.robe, 0, -0.85, -0.05));
+    body.add(cape);
+
+    // head: green face, hooked nose, wart, glowing eyes, cackling mouth, braids
+    body.add(box(0.95, 0.9, 0.9, M.skin, 0, 2.35, 0.1), box(0.2, 0.2, 0.55, M.nose, 0, 2.25, 0.7), box(0.12, 0.22, 0.14, M.nose, 0, 2.1, 0.92), box(0.1, 0.1, 0.1, dark, 0.3, 2.12, 0.58));
+    const pupils = [];
+    [-1, 1].forEach((s) => {
+      body.add(box(0.24, 0.2, 0.08, eyeM, s * 0.25, 2.47, 0.58));
+      const p = box(0.09, 0.12, 0.06, dark, s * 0.25, 2.47, 0.64);
+      p.userData.baseX = s * 0.25; body.add(p); pupils.push(p);
+    });
+    const mouth = box(0.5, 0.12, 0.08, dark, 0, 1.95, 0.58);
+    body.add(mouth);
+    const braids = [];
+    [-1, 1].forEach((s) => {
+      const b = new THREE.Group();
+      b.position.set(s * 0.52, 2.6, 0.0);
+      b.add(box(0.2, 1.0, 0.2, hairM, 0, -0.5, 0));
+      body.add(b); braids.push(b);
+    });
+
+    // tall crooked hat with a glowing band and a bent tip
+    const hat = new THREE.Group();
+    hat.position.set(0, 2.82, 0.1);
+    const brim = shade(new THREE.Mesh(new THREE.CylinderGeometry(1.3, 1.3, 0.1, 8), M.hat));
+    const cone = shade(new THREE.Mesh(new THREE.ConeGeometry(0.75, 1.9, 6), M.hat)); cone.position.y = 1.0; cone.rotation.z = 0.22;
+    const bandM = shade(new THREE.Mesh(new THREE.CylinderGeometry(0.78, 0.82, 0.22, 6), M.band), false); bandM.position.y = 0.22;
+    const tip = shade(new THREE.Mesh(new THREE.ConeGeometry(0.3, 1.0, 5), M.hat)); tip.position.set(0.62, 2.0, 0); tip.rotation.z = -0.95;
+    hat.add(brim, cone, bandM, tip);
+    body.add(hat);
+
+    // arms: one grips the broom, the other waves while she cackles
+    const arms = [];
+    [-1, 1].forEach((s) => {
+      const a = new THREE.Group();
+      a.position.set(s * 0.62, 1.7, 0.3);
+      a.add(box(0.28, 0.9, 0.28, M.robe, 0, -0.45, 0), box(0.3, 0.26, 0.3, M.skin, 0, -1.02, 0));
+      body.add(a); arms.push(a);
+    });
+
+    return {
+      group: g, body: body, mouth: mouth, pupils: pupils, arms: arms, hover: 2.0,
+      extra: function (t, near, moving, i, dt, ge) {
+        hat.rotation.z = Math.sin(t * 3 + i) * 0.1 + (moving ? -0.2 : 0);
+        cape.rotation.x = 0.3 + Math.sin(t * 9 + i) * (moving ? 0.28 : 0.1);
+        braids[0].rotation.z = Math.sin(t * 5 + i) * 0.32; braids[1].rotation.z = Math.sin(t * 5 + i + 1.3) * 0.32;
+        legs[0].rotation.x = Math.sin(t * 6 + i) * 0.25; legs[1].rotation.x = -Math.sin(t * 6 + i) * 0.25;
+        arms[0].rotation.x = -1.15 + Math.sin(t * 8 + i) * 0.05;                       // gripping the broom
+        arms[1].rotation.x = -2.5 + Math.sin(t * 10 + i) * 0.35;                       // waving arm
+        arms[1].rotation.z = 0.35 + Math.sin(t * 10 + i) * 0.35;
+        mouth.scale.x = 1 + Math.sin(t * 14 + i) * 0.35 * (0.3 + near);                // cackle
+        bristles.rotation.y = Math.sin(t * 12 + i) * 0.25;
+        if (moving && Math.random() < dt * 14) {                                       // glowing trail off the broom tail
+          const gp = ge.grp.position, ry = ge.grp.rotation.y;
+          burst(gp.x - Math.sin(ry) * 2.5, gp.y - 0.1, gp.z - Math.cos(ry) * 2.5, M.trail, 1, true);
+        }
+      }
+    };
+  }
+
+  function makeGhost() {
+    const g = new THREE.Group();
+    const body = new THREE.Group();
+    g.add(body);
+    const sheet = new THREE.MeshStandardMaterial({ color: 0xf3eeff, emissive: 0x8f7cff, emissiveIntensity: 0.45, roughness: 1, flatShading: true });
+
+    const torso = shade(new THREE.Mesh(new THREE.CylinderGeometry(1.15, 1.4, 2.4, 8), sheet));
+    torso.position.y = 2.0;
+    const dome = shade(new THREE.Mesh(new THREE.SphereGeometry(1.15, 8, 5, 0, TAU, 0, Math.PI / 2), sheet));
+    dome.position.y = 3.2;
+    body.add(torso, dome);
+
+    for (let i = 0; i < 8; i++) {   // ragged hem
+      const a = (i / 8) * TAU;
+      const s = box(0.7, 0.9 + (i % 2) * 0.4, 0.7, sheet, Math.cos(a) * 1.25, 0.55, Math.sin(a) * 1.25);
+      s.rotation.y = -a;
+      s.castShadow = false;
+      body.add(s);
+    }
+
+    // googly eyes
+    const white = new THREE.MeshBasicMaterial({ color: 0xffffff }), black = new THREE.MeshBasicMaterial({ color: 0x120a1f });
+    const pupils = [];
+    [-1, 1].forEach((s) => {
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.42, 8, 6), white);
+      eye.position.set(s * 0.5, 3.05, 0.95);
+      const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.18, 6, 5), black);
+      pupil.position.set(s * 0.5, 3.05, 1.28);
+      pupil.userData.baseX = s * 0.5;
+      body.add(eye, pupil);
+      pupils.push(pupil);
+    });
+
+    const mouth = new THREE.Mesh(new THREE.SphereGeometry(0.38, 8, 6), black);
+    mouth.position.set(0, 2.25, 1.2);
+    mouth.scale.set(1.3, 0.7, 0.45);
+    body.add(mouth);
+
+    const pink = new THREE.MeshBasicMaterial({ color: 0xff8fb1 });
+    [-1, 1].forEach((s) => {
+      const c = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.28, 0.1), pink);
+      c.position.set(s * 0.85, 2.65, 0.9);
+      c.rotation.y = s * 0.6;
+      body.add(c);
+    });
+
+    const arms = [];
+    [-1, 1].forEach((s) => {   // arms out for a hug
+      const pivot = new THREE.Group();
+      pivot.position.set(s * 1.3, 2.3, 0.3);
+      pivot.rotation.y = s * 0.25;
+      pivot.add(box(0.55, 0.55, 1.5, sheet, 0, 0, 0.7));
+      body.add(pivot);
+      arms.push(pivot);
+    });
+
+    // party hat
+    const hat = shade(new THREE.Mesh(new THREE.ConeGeometry(0.45, 1, 6), mat(0xff7a1a)));
+    hat.position.set(0.15, 4.8, 0.1); hat.rotation.z = -0.3;
+    const pom = new THREE.Mesh(new THREE.SphereGeometry(0.17, 6, 5), new THREE.MeshBasicMaterial({ color: 0xffe08a }));
+    pom.position.set(-0.03, 5.32, 0.1);
+    body.add(hat, pom);
+
+    // no per-ghost light: up to six ghosts share the scene, the emissive sheet gives the glow
+
+    return { group: g, body: body, pupils: pupils, mouth: mouth, arms: arms };
+  }
+
+  /* ===================== build everything ===================== */
+  buildSky();
+  buildGround();
+  buildHouse();
+  buildWalls();
+  buildGraves();
+  buildTrees();
+  buildPumpkinPatch();
+  buildNav();
+
+  const player = makePlayer();
+  const P = player.group;
+  scene.add(P);
+
+  // every enemy slot, built once: 6 ghosts then 6 witches. A round switches on one kind through state.roster.
+  const ghosts = [];
+  function addEnemy(kind, m) {
+    m.group.visible = false;
+    scene.add(m.group);
+    ghosts.push({ kind: kind, m: m, grp: m.group, mode: 'off', respawnT: 0, lostT: 0, seeT: 0, sees: false, lastX: 0, lastZ: 0, sx: 0, sz: 0,
+      wanderT: 0, path: null, pi: 0, repathT: 0, pathX: 0, pathZ: 0, vx: 0, vz: 1, moved: false, appear: 1 });
+  }
+  for (let i = 0; i < 6; i++) addEnemy('ghost', makeGhost());
+  for (let i = 0; i < 6; i++) addEnemy('witch', makeWitch());
+
+  // the magic key (forged from the pumpkins) floats above the player and carries the light
+  const prize = new THREE.Group();
+  prize.add(makeKeyMesh());
+  prize.visible = false;
+  const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 40, 12, 1, true),
+    new THREE.MeshBasicMaterial({ color: 0xffa030, transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+  beam.position.y = 20;
+  beam.position.set(DOOR.x, 20, DOOR.z);   // becomes the door beacon once the key exists
+  {
+    const ring = new THREE.Mesh(new THREE.RingGeometry(1.7, 2.4, 24),
+      new THREE.MeshBasicMaterial({ color: 0xffa030, transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.y = -19.9;
+    beam.add(ring);
+  }
+  beam.visible = false;
+  scene.add(beam);
+  doorBeam = beam;
+  const prizeLight = new THREE.PointLight(0xffa030, 1.9, 18);
+  prizeLight.position.y = 2.2;
+  prize.add(prizeLight);
+  scene.add(prize);
+
+  function makeKeyMesh() {
+    const g = new THREE.Group();
+    const gold = new THREE.MeshStandardMaterial({ color: 0xffd36b, emissive: 0xffa520, emissiveIntensity: 1.2, roughness: 0.6, flatShading: true });
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.55, 0.2, 5, 8), gold);
+    ring.position.y = 0.9;
+    g.add(ring, box(0.22, 1.5, 0.22, gold, 0, 0, 0), box(0.6, 0.2, 0.2, gold, 0.3, -0.5, 0), box(0.45, 0.2, 0.2, gold, 0.22, -0.2, 0));
+    g.scale.setScalar(0.62);
+    return g;
+  }
+
+  // the mystery gift that pops out of the unlocked door
+  const gift = new THREE.Group();
+  {
+    const wrap = mat(0x8a5cff);
+    const rib = new THREE.MeshStandardMaterial({ color: 0xffc15e, emissive: 0xff8a1a, emissiveIntensity: 0.5, flatShading: true });
+    const bow1 = box(0.9, 0.5, 0.4, rib, -0.5, 2.2, 0), bow2 = box(0.9, 0.5, 0.4, rib, 0.5, 2.2, 0);
+    bow1.rotation.z = 0.5; bow2.rotation.z = -0.5;
+    gift.add(box(2, 1.6, 2, wrap, 0, 0.8, 0), box(2.1, 0.4, 2.1, wrap, 0, 1.7, 0), box(0.4, 2.0, 2.15, rib, 0, 0.9, 0), box(2.15, 2.0, 0.4, rib, 0, 0.9, 0), bow1, bow2);
+  }
+  gift.visible = false;
+  scene.add(gift);
+
+  // pooled glowing pumpkins: reused, never more than POOL on screen
+  // collectibles are the only pumpkins with a golden light beam and ground ring; decorative ones are plain
+  const beamGeo = new THREE.CylinderGeometry(0.3, 0.3, 16, 8, 1, true), ringGeo = new THREE.RingGeometry(1.5, 1.9, 20);
+  const pickBeamMat = new THREE.MeshBasicMaterial({ color: 0xffd36b, transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  const pickRingMat = new THREE.MeshBasicMaterial({ color: 0xffd36b, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  const pumpkins = [];
+  for (let i = 0; i < POOL; i++) {
+    const g = makePumpkin(1, true, true);
+    const pb = new THREE.Mesh(beamGeo, pickBeamMat), pr = new THREE.Mesh(ringGeo, pickRingMat);
+    pb.position.y = 9; pr.rotation.x = -Math.PI / 2; pr.position.y = 0.06;
+    g.add(pb, pr);
+    g.visible = false;
+    scene.add(g);
+    pumpkins.push({ g: g, state: 'free', t: 0, x: 0, z: 0, bob: rand(0, TAU), fx: 0, fz: 0 });
+  }
+
+  /* ===================== sparks ===================== */
+  const sparks = [];
+  const sparkGeo = new THREE.BoxGeometry(0.28, 0.28, 0.28);
+  const sparkMat = new THREE.MeshBasicMaterial({ color: 0xffc15e });
+  const ghostSparkMat = new THREE.MeshBasicMaterial({ color: 0xb9a8ff });
+  function burst(x, y, z, mt, n, soft) {
+    for (let i = 0; i < (n || 14); i++) {
+      const m = new THREE.Mesh(sparkGeo, mt || sparkMat), f = soft ? 0.22 : 1, life = soft ? 0.55 : 0.7;
+      m.position.set(x, y, z);
+      scene.add(m);
+      sparks.push({ m: m, vx: rand(-6, 6) * f, vy: rand(4, 10) * f, vz: rand(-6, 6) * f, life: life, life0: life });
+    }
+  }
+  function updateSparks(dt) {
+    for (let i = sparks.length - 1; i >= 0; i--) {
+      const s = sparks[i];
+      s.life -= dt;
+      s.vy -= 22 * dt;
+      s.m.position.x += s.vx * dt; s.m.position.y += s.vy * dt; s.m.position.z += s.vz * dt;
+      s.m.scale.setScalar(Math.max(0.01, s.life / s.life0));
+      if (s.life <= 0) { scene.remove(s.m); sparks.splice(i, 1); }
+    }
+  }
+
+  /* ===================== input ===================== */
+  const keys = {};
+  const touch = { mx: 0, my: 0, moveId: null, lookId: null, ox: 0, oy: 0, lx: 0, ly: 0 };
+  let dragging = false;
+  // may the local player steer right now? Solo: while a round runs. Online: during a match, until eliminated.
+  function inputOn() {
+    if (state.mode === 'playing') return true;
+    if (state.mode !== 'mp' || !MP || !MP.W || MP.W.ph !== 'play' || !MP.me) return false;
+    const e = MP.W.pl[MP.me];
+    return !!e && e.t !== 'dead';
+  }
+
+  window.addEventListener('keydown', (e) => {
+    keys[e.code] = true;
+    if (inputOn() && (/^Arrow/.test(e.code) || e.code === 'Space')) e.preventDefault();
+    if (e.code === 'Space' && !e.repeat && inputOn()) jumpBuf = 0.14;
+  });
+  window.addEventListener('keyup', (e) => { keys[e.code] = false; });
+  window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+
+  function lockPointer() {
+    try {
+      const p = canvas.requestPointerLock && canvas.requestPointerLock();
+      if (p && p.catch) p.catch(() => {});
+    } catch (err) { /* mouse capture is optional */ }
+  }
+  function look(dx, dy) {
+    state.yaw -= dx * CFG.lookSens;
+    state.pitch = clamp(state.pitch + dy * CFG.lookSens, 0.12, 1.2);
+  }
+  canvas.addEventListener('mousedown', () => {
+    dragging = true;
+    if (inputOn() && document.pointerLockElement !== canvas) lockPointer();
+  });
+  window.addEventListener('mouseup', () => { dragging = false; });
+  window.addEventListener('mousemove', (e) => {
+    if (!inputOn()) return;
+    if (document.pointerLockElement === canvas || dragging) look(e.movementX || 0, e.movementY || 0);
+  });
+
+  const stick = $('stick'), knob = $('knob');
+  canvas.addEventListener('touchstart', (e) => {
+    if (!inputOn()) return;
+    e.preventDefault();
+    for (const t of e.changedTouches) {
+      if (t.clientX < window.innerWidth / 2 && touch.moveId === null) {
+        touch.moveId = t.identifier; touch.ox = t.clientX; touch.oy = t.clientY;
+        stick.style.display = 'block';
+        stick.style.left = (t.clientX - 55) + 'px';
+        stick.style.top = (t.clientY - 55) + 'px';
+        knob.style.transform = 'translate(0,0)';
+      } else if (touch.lookId === null) {
+        touch.lookId = t.identifier; touch.lx = t.clientX; touch.ly = t.clientY;
+      }
+    }
+  }, { passive: false });
+  canvas.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    for (const t of e.changedTouches) {
+      if (t.identifier === touch.moveId) {
+        let vx = (t.clientX - touch.ox) / 50, vy = (t.clientY - touch.oy) / 50;
+        const l = Math.hypot(vx, vy);
+        if (l > 1) { vx /= l; vy /= l; }
+        touch.mx = vx; touch.my = -vy;
+        knob.style.transform = 'translate(' + (vx * 36) + 'px,' + (vy * 36) + 'px)';
+      } else if (t.identifier === touch.lookId) {
+        state.yaw -= (t.clientX - touch.lx) * 0.006;
+        state.pitch = clamp(state.pitch + (t.clientY - touch.ly) * 0.005, 0.12, 1.2);
+        touch.lx = t.clientX; touch.ly = t.clientY;
+      }
+    }
+  }, { passive: false });
+  function endTouch(e) {
+    for (const t of e.changedTouches) {
+      if (t.identifier === touch.moveId) { touch.moveId = null; touch.mx = 0; touch.my = 0; stick.style.display = 'none'; }
+      if (t.identifier === touch.lookId) touch.lookId = null;
+    }
+  }
+  canvas.addEventListener('touchend', endTouch);
+  canvas.addEventListener('touchcancel', endTouch);
+
+  /* ===================== game state ===================== */
+  const state = { mode: 'ready', round: 0, score: 0, best: 0, t: 0, yaw: 0, pitch: 0.42, tauntT: 4,
+    timeLeft: ROUND_TIME, spawned: 0, phase: 'collect', alive: 0, roster: [] };
+  try { state.best = parseInt(localStorage.getItem('pumpkin-panic-best'), 10) || 0; } catch (err) { /* storage is optional */ }
+
+  const pv = { x: 0, z: 0 };
+  const jmp = { y: 0, vy: 0, grounded: true, squash: 0 };
+  let walkPhase = 0, tauntTimer = 0, jumpBuf = 0, forgeT = 0, unlockT = 0, giftOpenT = -1;
+  const scoreEl = $('score'), tauntEl = $('taunt'), toastEl = $('toast'), dangerEl = $('danger');
+  const timerEl = $('timer'), timerBox = $('timerBox'), roundEl = $('roundNum'), targetEl = $('targetTxt');
+  const ghostEl = $('ghostCount'), ghostTotEl = $('ghostTotal'), ghostLblEl = $('ghostLbl'), keyEl = $('keyTxt');
+  const cur = () => ROUNDS[state.round];
+
+  function setTxt(el, v) { if (el._v !== v) { el._v = v; el.textContent = v; } }
+  function updateHud() {
+    if (MP && MP.active) { mpHud(); return; }
+    const R = cur();
+    setTxt(roundEl, state.round + 1);
+    setTxt(scoreEl, state.score);
+    setTxt(targetEl, '/' + R.target);
+    setTxt(timerEl, Math.ceil(state.timeLeft));
+    timerBox.classList.toggle('warn', state.mode === 'playing' && state.timeLeft <= 10);
+    setTxt(ghostEl, state.alive);
+    setTxt(ghostTotEl, '/' + R.count);
+    setTxt(ghostLblEl, R.kind === 'witch' ? 'Witches' : 'Ghosts');
+    setTxt(keyEl, { collect: 'Locked', forge: 'Forging...', key: 'Find the door', unlock: 'Get the gift' }[state.phase]);
+    keyEl.classList.toggle('on', state.phase !== 'collect');
+  }
+  function showToast(text) {
+    toastEl.textContent = text;
+    toastEl.classList.remove('pop');
+    void toastEl.offsetWidth;
+    toastEl.classList.add('pop');
+  }
+
+  /* ---- pumpkin spawning ---- */
+  // Is (x,z) a legal pumpkin spot? Open ground, walkable from the start, away from the player and every ghost.
+  // distance to the closest living player (solo: just the player)
+  function playerDist(x, z) {
+    if (MP && MP.active && MP.targets && MP.targets.length) {
+      let d = 1e9;
+      for (const t of MP.targets) d = Math.min(d, Math.hypot(x - t.x, z - t.z));
+      return d;
+    }
+    return Math.hypot(x - P.position.x, z - P.position.z);
+  }
+  // the player a ghost at gp should go after: the closest living one (solo: always the player)
+  function nearestTarget(gp) {
+    if (MP && MP.active && MP.targets && MP.targets.length) {
+      let best = MP.targets[0], bd = 1e9;
+      for (const t of MP.targets) { const d = Math.hypot(t.x - gp.x, t.z - gp.z); if (d < bd) { bd = d; best = t; } }
+      return best;
+    }
+    return P.position;
+  }
+  function spotOK(x, z, minPlayer, maxPlayer) {
+    if (inHouseZone(x, z) || solidAt(x, z, 1.4)) return false;                    // walls, trees, graves, house, big pumpkins
+    if (!NAV.reach[cellOf(z) * NAV.n + cellOf(x)]) return false;                  // inaccessible pocket
+    const pd = playerDist(x, z);
+    if (pd < minPlayer || pd > maxPlayer) return false;
+    for (const g of ghosts) if ((g.mode === 'chase' || g.mode === 'search') && Math.hypot(x - g.grp.position.x, z - g.grp.position.z) < 6) return false;
+    return true;
+  }
+  // Spawn up to n pumpkins at once. Each one is the best of many random candidates across the whole map:
+  // the candidate farthest from every existing pumpkin and every pumpkin already placed in this batch wins,
+  // so a batch spreads out instead of clustering. Stops at the 120-event budget or when the pool is full.
+  function spawnBatch(n, minPlayer, maxPlayer) {
+    let made = 0;
+    for (let k = 0; k < n; k++) {
+      if (state.spawned >= SPAWN_BUDGET) break;
+      const slot = pumpkins.find((q) => q.state === 'free');
+      if (!slot) break;
+      const live = pumpkins.filter((q) => q.state !== 'free' && q.state !== 'pop');
+      let best = null, bestScore = -1;
+      for (let pass = 0; pass < 2 && !best; pass++) {
+        const minGap = pass === 0 ? 6 : 3.5, pMin = pass === 0 ? minPlayer : minPlayer * 0.5, pMax = pass === 0 ? maxPlayer : 999;
+        for (let i = 0; i < 90; i++) {
+          const a = rand(0, TAU), r = Math.sqrt(Math.random()) * 52, x = Math.cos(a) * r, z = Math.sin(a) * r;
+          if (!spotOK(x, z, pMin, pMax)) continue;
+          let d = 99;
+          for (const q of live) d = Math.min(d, Math.hypot(x - q.x, z - q.z));
+          if (d < minGap) continue;
+          const score = Math.min(d, 26) + Math.random();
+          if (score > bestScore) { bestScore = score; best = { x: x, z: z }; }
+        }
+      }
+      if (!best) continue;
+      slot.state = 'in'; slot.t = 0; slot.x = best.x; slot.z = best.z;
+      slot.g.position.set(best.x, 3, best.z);
+      slot.g.scale.setScalar(0.01);
+      slot.g.visible = true;
+      state.spawned++;
+      made++;
+    }
+    return made;
+  }
+
+  /* ---- ghosts: spawn and vanish ---- */
+  function spawnGhost(g, first) {
+    let x = 0, z = 0, ok = false;
+    for (let i = 0; i < 60 && !ok; i++) {
+      const a = rand(0, TAU), r = rand(18, 56);
+      x = Math.cos(a) * r; z = Math.sin(a) * r;
+      ok = !inHouseZone(x, z) && !solidAt(x, z, 1.8) && playerDist(x, z) > (i < 40 ? 28 : 20);
+    }
+    g.grp.position.set(x, 1, z);
+    g.grp.scale.setScalar(0.01);
+    g.grp.visible = true;
+    g.appear = 0; g.mode = 'search'; g.lostT = -3; g.sees = false; g.seeT = 0; g.path = null; g.wanderT = 0;
+    const tg = nearestTarget(g.grp.position);
+    g.sx = g.lastX = tg.x; g.sz = g.lastZ = tg.z;   // it heads for where the player is
+    if (!first) burst(x, 2, z, ghostSparkMat, 10);
+  }
+  // bring in every wave whose time has come; returns how many enemies arrived
+  function spawnWaves(elapsed) {
+    const R = cur();
+    let n = 0;
+    while (state.wave < R.waves.length && elapsed >= R.waves[state.wave][0]) {
+      let add = R.waves[state.wave][1];
+      state.wave++;
+      for (const g of state.roster) { if (add <= 0) break; if (g.mode === 'off') { spawnGhost(g, elapsed === 0); add--; n++; } }
+    }
+    return n;
+  }
+  function vanish(g) {
+    burst(g.grp.position.x, 2, g.grp.position.z, ghostSparkMat, 12);
+    g.mode = 'gone';
+    g.respawnT = cur().respawn;
+    g.grp.visible = false;
+  }
+
+  /* ---- round flow ---- */
+  function resetRun() {
+    const R = cur();
+    state.score = 0; state.spawned = 0; state.timeLeft = ROUND_TIME; state.phase = 'collect'; state.tauntT = 4;
+    forgeT = 0; unlockT = 0;
+    P.position.set(CFG.start.x, 0, CFG.start.z);
+    P.rotation.y = Math.PI;
+    P.scale.set(1, 1, 1);
+    pv.x = 0; pv.z = 0; jmp.y = 0; jmp.vy = 0; jmp.grounded = true; jmp.squash = 0; jumpBuf = 0;
+    state.yaw = 0; state.pitch = 0.42;
+    pumpkins.forEach((p) => { p.state = 'free'; p.g.visible = false; });
+    prize.visible = false; doorBeam.visible = false; gift.visible = false; doorPivot.rotation.y = 0;
+    doorOpen = false; giftOpenT = -1; doorLockMat.emissiveIntensity = 0.15;
+    ghosts.forEach((g) => { g.mode = 'off'; g.grp.visible = false; });
+    if (R.kind === 'witch') applyWitchPalette(R.palette);
+    state.roster = ghosts.filter((g) => g.kind === R.kind).slice(0, R.count);
+    state.wave = 0;
+    spawnWaves(0);                       // the opening wave
+    state.alive = state.roster.filter((g) => g.mode !== 'off').length;
+    spawnBatch(1, 14, 34);   // exactly one collectible to begin with, somewhere on the map within reach
+    tauntEl.classList.remove('on');
+    toastEl.classList.remove('pop');
+    updateHud();
+  }
+
+  function startGame() {
+    resetRun();
+    state.mode = 'playing';
+    $('startVeil').hidden = true;
+    $('overVeil').hidden = true;
+    $('winVeil').hidden = true;
+    $('jumpBtn').hidden = false;
+    try { window.focus(); } catch (err) { /* ignore */ }
+    lockPointer();
+    if (cur().kind === 'witch') showToast('Witches on brooms!');
+  }
+
+  function endInput() {
+    if (document.exitPointerLock) document.exitPointerLock();
+    touch.mx = 0; touch.my = 0; touch.moveId = null; touch.lookId = null; stick.style.display = 'none';
+    $('jumpBtn').hidden = true;
+    dangerEl.style.opacity = 0;
+    tauntEl.classList.remove('on');
+  }
+
+  function gameOver(reason) {
+    state.mode = 'over';
+    if (state.score > state.best) {
+      state.best = state.score;
+      try { localStorage.setItem('pumpkin-panic-best', String(state.best)); } catch (err) { /* ignore */ }
+    }
+    // Cloud-save solo results for signed-in players; guest gameplay remains unchanged.
+    if (window.PPAuth && typeof window.PPAuth.saveRun === 'function') {
+      window.PPAuth.saveRun({ score: state.score, bestScore: state.best, round: state.round + 1, reason: reason, mode: 'solo' });
+    }
+    endInput();
+    $('overTitle').textContent = reason === 'time' ? "Time's up!" : 'Caught!';
+    $('overMsg').textContent = reason === 'time' ? pick(LATE) : pick(cur().kind === 'witch' ? WCAUGHT : CAUGHT);
+    $('finalScore').textContent = state.score + ' / ' + cur().target;
+    $('overBest').textContent = 'Only round ' + (state.round + 1) + ' restarts. Best run: ' + state.best + ' pumpkins';
+    $('restartBtn').textContent = 'Retry round ' + (state.round + 1);
+    $('overVeil').hidden = false;
+    $('restartBtn').focus({ preventScroll: true });
+  }
+
+  function finishRound() {
+    state.mode = 'won';
+    endInput();
+    const last = state.round >= ROUNDS.length - 1;
+    $('winTitle').textContent = last ? 'You escaped!' : 'Door unlocked!';
+    $('winMsg').textContent = 'Mystery gift: ' + pick(GIFTS) + '.';
+    $('winStat').textContent = 'Round ' + (state.round + 1) + ' cleared with ' + Math.ceil(state.timeLeft) + 's left';
+    $('nextBtn').textContent = last ? 'Play again' : 'Start round ' + (state.round + 2);
+    $('winVeil').hidden = false;
+    $('nextBtn').focus({ preventScroll: true });
+  }
+
+  function say(text) {
+    tauntEl.textContent = text;
+    tauntEl.classList.add('on');
+    clearTimeout(tauntTimer);
+    tauntTimer = setTimeout(() => tauntEl.classList.remove('on'), 2600);
+  }
+
+  function collect(p) {
+    p.state = 'pop'; p.t = 0;
+    burst(p.x, 1.4, p.z);
+    state.score++;
+    showToast('+1 pumpkin!');
+    if (state.score >= cur().target) { startForge(); return; }
+    spawnBatch(5, 8, 999);   // every pickup grows five new pumpkins, spread across the whole map
+  }
+
+  // all remaining pumpkin energy streams into one glowing key
+  function startForge() {
+    state.phase = 'forge'; forgeT = 0;
+    pumpkins.forEach((p) => {
+      if (p.state === 'idle' || p.state === 'in') { p.state = 'fly'; p.t = -rand(0, 0.3); p.fx = p.x; p.fz = p.z; }
+    });
+    showToast('Forging the key...');
+  }
+
+  /* ===================== per-frame updates ===================== */
+  function updatePlayer(dt) {
+    let ix = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0) + touch.mx;
+    let iy = (keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0) + touch.my;
+    const len = Math.hypot(ix, iy);
+    if (len > 1) { ix /= len; iy /= len; }
+
+    // keyboard camera fallback
+    const turn = 2.2 * dt;
+    if (keys.ArrowLeft || keys.KeyQ) state.yaw += turn;
+    if (keys.ArrowRight || keys.KeyE) state.yaw -= turn;
+    if (keys.ArrowUp) state.pitch = clamp(state.pitch - turn * 0.6, 0.12, 1.2);
+    if (keys.ArrowDown) state.pitch = clamp(state.pitch + turn * 0.6, 0.12, 1.2);
+
+    const sy = Math.sin(state.yaw), cy = Math.cos(state.yaw);
+    const k = 1 - Math.exp(-14 * dt);
+    pv.x += ((-sy * iy + cy * ix) * CFG.walk - pv.x) * k;
+    pv.z += ((-cy * iy - sy * ix) * CFG.walk - pv.z) * k;
+    P.position.x += pv.x * dt;
+    P.position.z += pv.z * dt;
+
+    resolve(P.position, CFG.playerRadius, jmp.y);   // trees, graves, house, walls (rubble only while airborne above it)
+    const rr = Math.hypot(P.position.x, P.position.z);
+    if (rr > CFG.arena) { P.position.x *= CFG.arena / rr; P.position.z *= CFG.arena / rr; }
+
+    // jump and landing
+    jumpBuf = Math.max(0, jumpBuf - dt);
+    const ground = groundAt(P.position.x, P.position.z);
+    if (jmp.grounded && jmp.y > ground + 0.02) jmp.grounded = false;   // walked off the rubble: fall
+    if (jmp.grounded && jumpBuf > 0) { jmp.vy = CFG.jump; jmp.grounded = false; jumpBuf = 0; }
+    if (!jmp.grounded) {
+      jmp.vy -= CFG.gravity * dt;
+      jmp.y += jmp.vy * dt;
+      if (jmp.y <= ground && jmp.vy <= 0) { jmp.y = ground; jmp.vy = 0; jmp.grounded = true; jmp.squash = 1; }
+    } else jmp.y = ground;
+
+    const speed = Math.hypot(pv.x, pv.z);
+    if (speed > 0.4) P.rotation.y = lerpAngle(P.rotation.y, Math.atan2(pv.x, pv.z), 1 - Math.exp(-14 * dt));
+    animatePlayer(speed, dt);
+  }
+
+  function animatePlayer(speed, dt) {
+    const amt = clamp(speed / CFG.walk, 0, 1);
+    walkPhase += dt * (4 + speed * 1.3);
+    let stretch = 0;
+    if (jmp.grounded) {
+      const sw = Math.sin(walkPhase) * 0.85 * amt;
+      player.legs[0].rotation.x = sw;
+      player.legs[1].rotation.x = -sw;
+      player.arms[0].rotation.x = -sw * 0.9 + Math.sin(state.t * 2) * 0.04;
+      player.arms[1].rotation.x = sw * 0.9 - Math.sin(state.t * 2) * 0.04;
+      P.position.y = jmp.y + Math.abs(Math.sin(walkPhase)) * 0.12 * amt;
+    } else {   // airborne: arms up, knees tucked, stretch going up
+      const up = clamp(jmp.vy / CFG.jump, -1, 1);
+      player.legs[0].rotation.x = -0.55 - 0.25 * up;
+      player.legs[1].rotation.x = 0.35 + 0.2 * up;
+      player.arms[0].rotation.x = player.arms[1].rotation.x = -2.5 + 0.35 * up;
+      P.position.y = jmp.y;
+      stretch = Math.max(0, up) * 0.1;
+    }
+    jmp.squash = Math.max(0, jmp.squash - dt * 6);   // landing squash
+    const sq = jmp.squash * 0.18;
+    P.scale.set(1 + sq * 0.7 - stretch * 0.5, 1 - sq + stretch, 1 + sq * 0.7 - stretch * 0.5);
+  }
+
+  /* ---- ghost AI: see, chase, lose, search, vanish, respawn ---- */
+  function steer(g, tx, tz, speed, dt) {
+    const gp = g.grp.position;
+    let wx = tx, wz = tz;
+    if (!segClear(gp.x, gp.z, tx, tz, 1.1)) {   // something solid in the way: follow an A* path around it
+      g.repathT -= dt;
+      if (!g.path || g.repathT <= 0 || Math.hypot(tx - g.pathX, tz - g.pathZ) > 4) {
+        g.path = findPath(gp.x, gp.z, tx, tz); g.pi = 0; g.repathT = 0.4 + Math.random() * 0.2; g.pathX = tx; g.pathZ = tz;
+      }
+      if (g.path && g.pi < g.path.length) {
+        while (g.pi < g.path.length - 1 && (Math.hypot(g.path[g.pi].x - gp.x, g.path[g.pi].z - gp.z) < 1.2 ||
+               segClear(gp.x, gp.z, g.path[g.pi + 1].x, g.path[g.pi + 1].z, 1.1))) g.pi++;
+        wx = g.path[g.pi].x; wz = g.path[g.pi].z;
+      }
+    } else g.path = null;
+    const dx = wx - gp.x, dz = wz - gp.z, d = Math.hypot(dx, dz);
+    if (d > 0.01) {
+      const s = Math.min(speed * dt, d);
+      gp.x += dx / d * s; gp.z += dz / d * s;
+      g.vx = dx / d; g.vz = dz / d; g.moved = true;
+    }
+  }
+  function pickSearchSpot(g) {
+    for (let i = 0; i < 12; i++) {
+      const a = rand(0, TAU), r = rand(2, 7), x = g.lastX + Math.cos(a) * r, z = g.lastZ + Math.sin(a) * r;
+      if (Math.hypot(x, z) < 60 && !solidAt(x, z, 1.4)) { g.sx = x; g.sz = z; return; }
+    }
+  }
+
+  // live = ghosts act; otherwise they just hover. Returns the closest chasing ghost's distance.
+  function updateGhosts(dt, live) {
+    const R = cur(), list = state.roster, base = R.speed;
+    let alive = 0, nearest = 99;
+    for (let i = 0; i < list.length; i++) {
+      const g = list[i], gp = g.grp.position;
+      if (g.mode === 'off') continue;   // not yet spawned this round
+      if (g.mode === 'gone') { if (live) { g.respawnT -= dt; if (g.respawnT <= 0) spawnGhost(g, false); } continue; }
+      alive++;
+      g.moved = false;
+      g.appear = Math.min(1, g.appear + dt * 2);
+      g.grp.scale.setScalar(Math.max(0.01, g.appear));
+      const pl = nearestTarget(gp), dx = pl.x - gp.x, dz = pl.z - gp.z, dist = Math.hypot(dx, dz);
+      if (live) {
+        g.seeT -= dt;
+        if (g.seeT <= 0) { g.seeT = 0.15; g.sees = dist < (R.vision || CFG.vision) && losClear(gp.x, gp.z, pl.x, pl.z); }
+        const wob = 1 + 0.12 * Math.sin(state.t * 2.3 + i * 1.7), spd = base * wob;
+        if (g.sees) {
+          g.mode = 'chase'; g.lastX = pl.x; g.lastZ = pl.z; g.lostT = 0;
+          steer(g, pl.x, pl.z, spd, dt);
+          nearest = Math.min(nearest, dist);
+        } else {
+          if (g.mode === 'chase') { g.mode = 'search'; g.sx = g.lastX; g.sz = g.lastZ; g.wanderT = 0; }   // lost sight: go to last known spot
+          g.lostT += dt;
+          if (g.lostT > (R.giveUp || CFG.giveUp)) { vanish(g); alive--; continue; }
+          if (Math.hypot(g.sx - gp.x, g.sz - gp.z) < 2) {
+            g.wanderT -= dt;
+            if (g.wanderT <= 0) { g.wanderT = 1.4; pickSearchSpot(g); }
+          } else steer(g, g.sx, g.sz, spd * 0.85, dt);
+        }
+        if (g.appear > 0.8 && dist < CFG.catchDist) {
+          if (MP && MP.active) { if (pl.peer) mpCatch(pl.peer, g); }
+          else { gameOver('ghost'); state.alive = alive; return nearest; }
+        }
+      }
+    }
+    if (live) {   // keep ghosts from stacking, then keep them out of solids
+      for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {
+        const a = list[i], b = list[j];
+        if (a.mode === 'gone' || b.mode === 'gone' || a.mode === 'off' || b.mode === 'off') continue;
+        const dx = b.grp.position.x - a.grp.position.x, dz = b.grp.position.z - a.grp.position.z, d = Math.hypot(dx, dz);
+        if (d < 2.6 && d > 0.001) {
+          const push = (2.6 - d) * 0.5;
+          a.grp.position.x -= dx / d * push; a.grp.position.z -= dz / d * push;
+          b.grp.position.x += dx / d * push; b.grp.position.z += dz / d * push;
+        }
+      }
+      for (let i = 0; i < list.length; i++) {
+        const g = list[i];
+        if (g.mode === 'gone' || g.mode === 'off') continue;
+        resolve(g.grp.position, 1.0, -1);
+        const rr = Math.hypot(g.grp.position.x, g.grp.position.z);
+        if (rr > 62) { g.grp.position.x *= 62 / rr; g.grp.position.z *= 62 / rr; }
+      }
+    }
+    // faces and wobble
+    for (let i = 0; i < list.length; i++) {
+      const g = list[i], gp = g.grp.position, m = g.m;
+      if (g.mode === 'gone' || g.mode === 'off') continue;
+      const pl = nearestTarget(gp), dx = pl.x - gp.x, dz = pl.z - gp.z, dist = Math.hypot(dx, dz);
+      const face = g.moved ? Math.atan2(g.vx, g.vz) : Math.atan2(dx, dz);
+      g.grp.rotation.y = lerpAngle(g.grp.rotation.y, face, 1 - Math.exp(-6 * dt));
+      gp.y = (m.hover || 1.0) + Math.sin(state.t * 2.1 + i * 2) * 0.35;
+      m.body.rotation.z = Math.sin(state.t * 3 + i) * 0.08;
+      m.body.rotation.x = g.moved ? 0.15 : 0;
+      const near = clamp(1 - dist / 14, 0, 1);
+      m.mouth.scale.y = 0.7 + near * 1.3 + Math.sin(state.t * 8) * 0.08 * near;
+      m.pupils.forEach((p) => { p.position.x = p.userData.baseX + Math.sin(state.t * 9) * 0.06 * (0.3 + near); });
+      m.arms[0].rotation.x = -Math.sin(state.t * 6 + i) * 0.25;
+      m.arms[1].rotation.x = Math.sin(state.t * 6 + i) * 0.25;
+      if (m.extra) m.extra(state.t, near, g.moved, i, dt, g);   // witch-only animation
+    }
+    state.alive = alive;
+    return nearest;
+  }
+
+  /* ---- pooled pumpkins: pop-in, bob, pickup pop, fly into the key ---- */
+  function updatePumpkins(dt, canCollect) {
+    const pl = P.position;
+    for (const p of pumpkins) {
+      if (p.state === 'free') continue;
+      p.t += dt;
+      const g = p.g;
+      if (p.state === 'in') {
+        const k = Math.min(1, p.t / 0.35), c1 = 1.70158, c3 = c1 + 1;
+        g.scale.setScalar(Math.max(0.01, 1 + c3 * Math.pow(k - 1, 3) + c1 * Math.pow(k - 1, 2)) * 0.95);   // overshoot
+        g.position.y = (1 - k) * (1 - k) * 3;
+        g.rotation.y += dt * 4;
+        if (k >= 1) p.state = 'idle';
+      } else if (p.state === 'idle') {
+        g.rotation.y += dt * 1.8;
+        g.position.y = 0.15 + Math.sin(state.t * 3 + p.bob) * 0.12;
+        g.scale.setScalar(0.95);
+        if (canCollect) {
+          if (MP && MP.active) { const who = mpPicker(p); if (who) mpCollect(p, who); }
+          else if (jmp.y < 1.8 && Math.hypot(pl.x - p.x, pl.z - p.z) < CFG.grabDist) collect(p);
+        }
+      } else if (p.state === 'pop') {
+        const k = Math.min(1, p.t / 0.28);
+        g.scale.setScalar(0.95 * (k < 0.35 ? 1 + (k / 0.35) * 0.55 : 1.55 * (1 - (k - 0.35) / 0.65)) + 0.001);   // swell, then vanish
+        g.position.y += dt * 6;
+        g.rotation.y += dt * 14;
+        if (k >= 1) { p.state = 'free'; g.visible = false; }
+      } else if (p.state === 'fly') {
+        if (p.t < 0) continue;
+        const k = Math.min(1, p.t / 0.8), e = k * k;
+        g.position.x = p.fx + (pl.x - p.fx) * e;
+        g.position.z = p.fz + (pl.z - p.fz) * e;
+        g.position.y = 0.2 + (5 - 0.2) * e + Math.sin(k * Math.PI) * 1.5;
+        g.scale.setScalar(0.95 * (1 - 0.7 * e));
+        g.rotation.y += dt * 12;
+        if (k >= 1) { burst(g.position.x, g.position.y, g.position.z, undefined, 4); p.state = 'free'; g.visible = false; }
+      }
+    }
+  }
+
+  /* ---- round phases: collect -> forge key -> reach the door -> unlock ---- */
+  function updateRound(dt) {
+    const pl = P.position;
+    if (state.phase !== 'unlock') {
+      state.timeLeft -= dt;
+      if (state.timeLeft <= 0) { state.timeLeft = 0; gameOver('time'); return; }
+      if (spawnWaves(ROUND_TIME - state.timeLeft) > 0) showToast(cur().kind === 'witch' ? 'More witches!' : 'More ghosts!');
+    }
+    if (state.phase === 'collect') {
+      let active = 0;
+      for (const p of pumpkins) if (p.state === 'idle' || p.state === 'in') active++;
+      if (active < 1) spawnBatch(1, 8, 999);   // never leave the map without a collectible
+    } else if (state.phase === 'forge') {
+      forgeT += dt;
+      if (forgeT >= 1.3) {
+        prize.visible = true;
+        prize.position.set(pl.x, 5, pl.z);
+        burst(pl.x, 5, pl.z, undefined, 24);
+        doorBeam.visible = true;
+        state.phase = 'key';
+        showToast('Key forged! Reach the door');
+      }
+    } else if (state.phase === 'key') {
+      prize.position.x += (pl.x - prize.position.x) * (1 - Math.exp(-8 * dt));
+      prize.position.z += (pl.z - prize.position.z) * (1 - Math.exp(-8 * dt));
+      prize.position.y = 4.5 + pl.y + Math.sin(state.t * 3) * 0.2;
+      prize.rotation.y += dt * 2;
+      doorLockMat.emissiveIntensity = 0.9 + Math.sin(state.t * 5) * 0.5;
+      if (Math.hypot(pl.x - DOOR.x, pl.z - DOOR.z) < DOOR.r) { state.phase = 'unlock'; unlockT = 0; showToast('Unlocked!'); }
+    } else if (state.phase === 'unlock') {
+      unlockT += dt;
+      const lockX = 0.9, lockY = 2.5, lockZ = -36.7;
+      if (unlockT < 0.9) {                       // the key glides to the keyhole and turns
+        const k = 1 - Math.exp(-7 * dt);
+        prize.position.x += (lockX - prize.position.x) * k;
+        prize.position.y += (lockY - prize.position.y) * k;
+        prize.position.z += (lockZ - prize.position.z) * k;
+        prize.rotation.y += dt * 8;
+        doorLockMat.emissiveIntensity = 1.6;
+      } else if (prize.visible) { prize.visible = false; burst(lockX, lockY, lockZ, undefined, 20); }
+      if (unlockT > 0.9) {                       // the door swings smoothly inward
+        const k = Math.min(1, (unlockT - 0.9) / 1.2), e = k * k * (3 - 2 * k);
+        doorPivot.rotation.y = 1.75 * e;
+        if (e > 0.35) doorOpen = true;
+      }
+      if (unlockT > 2.1 && giftOpenT < 0) {      // the mystery gift pops up on the table inside the house
+        if (!gift.visible) { gift.visible = true; burst(0, 2, -44.6, undefined, 24); showToast('Walk in and open the gift!'); }
+        const k = Math.min(1, (unlockT - 2.1) / 0.5), c1 = 1.70158, c3 = c1 + 1;
+        gift.position.set(0, 1.04, -44.6);
+        gift.scale.setScalar(Math.max(0.01, 1 + c3 * Math.pow(k - 1, 3) + c1 * Math.pow(k - 1, 2)) * 0.75);
+        gift.rotation.y += dt * 1.5;
+        if (unlockT > 2.6 && Math.hypot(pl.x, pl.z + 44.6) < 2.6) { giftOpenT = 0; burst(0, 2.2, -44.6, undefined, 30); showToast('Mystery gift!'); }
+      } else if (giftOpenT >= 0) {               // reaching the gift opens it, then the round is complete
+        giftOpenT += dt;
+        const k = Math.min(1, giftOpenT / 0.6);
+        gift.scale.setScalar(0.75 * (1 + 0.7 * k));
+        gift.position.y = 1.04 + k * 1.4;
+        gift.rotation.y += dt * 9;
+        if (giftOpenT > 1.0) { gift.visible = false; finishRound(); }
+      }
+    }
+  }
+
+  function updateCamera(dt) {
+    const cp = Math.cos(state.pitch), sp = Math.sin(state.pitch);
+    const F = (MP && MP.active && MP.specPos) || P.position;
+    const tx = F.x, ty = 2.1 + F.y * 0.6, tz = F.z;
+    const dx = tx + Math.sin(state.yaw) * cp * CFG.camDist;
+    const dy = ty + sp * CFG.camDist;
+    const dz = tz + Math.cos(state.yaw) * cp * CFG.camDist;
+    const k = 1 - Math.exp(-22 * dt);
+    camera.position.x += (dx - camera.position.x) * k;
+    camera.position.y += (dy - camera.position.y) * k;
+    camera.position.z += (dz - camera.position.z) * k;
+    camera.lookAt(tx, ty, tz);
+
+    moonLight.target.position.set(tx, 0, tz);
+    moonLight.position.set(tx - 26, 46, tz + 18);
+  }
+
+  let last = performance.now();
+  function loop(now) {
+    requestAnimationFrame(loop);
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    state.t += dt;
+    grassU.uTime.value = state.t;
+    fit();
+
+    let nearest = 99;
+    if (state.mode === 'mp') {
+      nearest = mpFrame(dt);
+    } else if (state.mode === 'playing') {
+      updatePlayer(dt);
+      updateRound(dt);
+      if (state.mode === 'playing') nearest = updateGhosts(dt, state.phase !== 'unlock');
+      if (state.mode === 'playing') {
+        updatePumpkins(dt, state.phase === 'collect');
+        state.tauntT -= dt;
+        if (state.tauntT <= 0) { if (nearest < 20) say(pick(cur().kind === 'witch' ? WTAUNTS : TAUNTS)); state.tauntT = rand(5, 8); }
+      }
+    } else {
+      if (state.mode === 'ready') state.yaw += dt * 0.12;
+      updateGhosts(dt, false);
+      updatePumpkins(dt, false);
+      animatePlayer(0, dt);
+    }
+    if (state.mode === 'won' && gift.visible) gift.rotation.y += dt * 1.5;
+
+    beam.material.opacity = 0.17 + Math.sin(state.t * 4) * 0.05;
+    const near = clamp(1 - nearest / 14, 0, 1);
+    dangerEl.style.opacity = inputOn() ? clamp((near - 0.35) * 1.5, 0, 0.9) * (0.75 + Math.sin(state.t * 10) * 0.25) : 0;
+
+    // candle-flicker on the house
+    const fl = 1.7 + Math.sin(state.t * 7) * 0.15 + Math.sin(state.t * 13.3) * 0.1;
+    houseLight.intensity = fl;
+    houseWindows[0].emissiveIntensity = 1.1 + Math.sin(state.t * 6.1) * 0.25;
+    prizeLight.intensity = prize.visible ? 1.9 : 0;
+    // interior: walls fade out while the player is inside so the camera can see in; the top hides only when the camera is above it
+    const inside = P.position.x > -6.6 && P.position.x < 6.6 && P.position.z > -46.6 && P.position.z < -37.4;
+    houseWallMat.opacity += ((inside ? 0.18 : 1) - houseWallMat.opacity) * (1 - Math.exp(-8 * dt));
+    const hideTop = inside && camera.position.y > 8.2;
+    houseRoof.visible = houseCeiling.visible = !hideTop;
+    fireLight.intensity = 1.5 + Math.sin(state.t * 9) * 0.2 + Math.sin(state.t * 17.3) * 0.15;
+    fireGlow.emissiveIntensity = 1.2 + Math.sin(state.t * 11) * 0.3;
+
+    updateSparks(dt);
+    updateHud();
+    updateCamera(dt);
+    renderer.render(scene, camera);
+  }
+
+  /* ===================== online multiplayer ===================== */
+  // Real realtime play over claude.ai's `room` capability, no fake players. Everyone runs this same page and publishes
+  // only their own position through room presence. The player who created the room is the HOST: the host's page runs the
+  // shared world (timer, pumpkins, enemies, doors, scores) and publishes it, and every other page just displays it.
+  // If the host leaves, the next player takes over from the last snapshot.
+  const MPC = [
+    { hood: 0xff7a1a, hat: 0x5b2bb8, css: '#ff9a3a' },
+    { hood: 0x1fb5a8, hat: 0x14405a, css: '#2fd9c9' },
+    { hood: 0xe84a9a, hat: 0x5a1a4a, css: '#ff6fb5' },
+    { hood: 0x8ad23a, hat: 0x2a4a1a, css: '#a6e85a' }
+  ];
+  const NEED = 20;   // pumpkins each player needs for a key, every round
+  const MSG = {
+    catch: ['{n} got hugged so hard they left orbit.', '{n} was yeeted into the moon by an enthusiastic ghost!', '{n} has been boo-ed right off the map.', '{n} tried to outrun a ghost. The ghost brought snacks.'],
+    witch: ['{n} was swept up by a witch. Housekeeping!', '{n} was cackled at until they gave up.', '{n} is now a very surprised hat ornament.', '{n} got a free broom ride. One way.'],
+    door: ['{n} was left out in the cold. No doors left!', '{n} brought a key to a door fight and lost.', '{n} got pancaked by pure disappointment.', '{n} is now a very sad lawn ornament.'],
+    time: ['{n} ran out of time and became pumpkin pie.', '{n} dawdled. The pumpkins claimed another.', '{n} is out of time and into the oven.'],
+    left: ['{n} fled the haunted house and the room.']
+  };
+  const r1 = (v) => Math.round(v * 10) / 10, r2 = (v) => Math.round(v * 100) / 100;
+  const cleanName = (s) => String(s || '').replace(/[^A-Za-z0-9 _-]/g, '').trim().slice(0, 12);
+  // Multiplayer is provided by the Firebase Realtime Database adapter loaded below.
+  // No Claude Artifact room API is used by this build.
+  let roomApi = null;
+
+  /* ---- little helpers: name labels, recolouring ---- */
+  function makeLabel(text, color, w) {
+    const cv = document.createElement('canvas');
+    cv.width = 256; cv.height = 64;
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, depthTest: false }));
+    sp.userData.cv = cv;
+    sp.scale.set(w || 4.4, (w || 4.4) / 4, 1);
+    sp.renderOrder = 20;
+    setLabel(sp, text, color);
+    return sp;
+  }
+  function setLabel(sp, text, color) {
+    if (sp.userData.txt === text && sp.userData.col === color) return;
+    sp.userData.txt = text; sp.userData.col = color;
+    const cv = sp.userData.cv, c = cv.getContext('2d');
+    c.clearRect(0, 0, 256, 64);
+    c.fillStyle = 'rgba(26,11,46,0.72)';
+    c.beginPath(); c.moveTo(14, 6); c.lineTo(242, 6); c.quadraticCurveTo(250, 6, 250, 14); c.lineTo(250, 50); c.quadraticCurveTo(250, 58, 242, 58); c.lineTo(14, 58); c.quadraticCurveTo(6, 58, 6, 50); c.lineTo(6, 14); c.quadraticCurveTo(6, 6, 14, 6); c.fill();
+    c.font = '600 30px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillStyle = color || '#fff';
+    c.fillText(text, 128, 34, 230);
+    sp.material.map.needsUpdate = true;
+  }
+  function recolor(pl, c) {
+    const k = MPC[c % MPC.length];
+    pl.hoodM.color.setHex(k.hood); pl.hatM.color.setHex(k.hat);
+  }
+
+  /* ---- doors ---- */
+  doors.forEach((d, k) => {
+    d.beam = beam.clone();
+    d.beam.position.set(DOORS[k].x, 20, DOORS[k].z);
+    d.beam.visible = false;
+    scene.add(d.beam);
+    d.label = makeLabel('DOOR ' + (k + 1), '#ffc15e', 4.6);
+    d.label.position.set(DOORS[k].cx + DOORS[k].nx * 0.9, 5.7, DOORS[k].cz + DOORS[k].nz * 0.9);
+    d.label.visible = false;
+    scene.add(d.label);
+  });
+  function mpSetDoors(md) {   // md: 'A' four doors, 'B' three doors, anything else: solo (front door only)
+    doors.forEach((d, k) => {
+      d.enabled = md === 'A' ? true : md === 'B' ? k < 3 : k === 0;
+      d.open = 0; d.pivot.rotation.y = 0;
+      d.boards.visible = !d.enabled;
+      d.field.visible = false;
+      d.beam.visible = false;
+      d.label.visible = !!md;
+      setLabel(d.label, d.enabled ? 'DOOR ' + (k + 1) : 'SEALED', d.enabled ? '#ffc15e' : '#b9a8ff');
+    });
+  }
+
+  /* ---- session ---- */
+  const $mp = (id) => document.getElementById(id);
+  function mpNote(text, err) { const n = $mp('mpNote'); n.textContent = text || ''; n.classList.toggle('err', !!err); }
+  function showOnly(id) {
+    ['startVeil', 'overVeil', 'winVeil', 'mpVeil', 'mpResVeil'].forEach((v) => { $mp(v).hidden = v !== id; });
+  }
+  function codeGen() {
+    const al = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let s = '';
+    for (let i = 0; i < 4; i++) s += al[(Math.random() * al.length) | 0];
+    return s;
+  }
+  async function mpJoin(code, creator) {
+    if (!window.PPRealtime) { mpNote('Multiplayer service is still loading. Refresh and try again.', true); return false; }
+    if (!window.PPAuth || !window.PPAuth.user) { mpNote('Sign in with Google before creating or joining an online room.', true); return false; }
+    const name = cleanName($mp('mpName').value) || ('Player' + ((Math.random() * 90 + 10) | 0));
+    try { localStorage.setItem('pumpkin-panic-name', name); } catch (err) { /* optional */ }
+    mpNote('Connecting...');
+    let room;
+    try { room = await window.PPRealtime.join('pp-' + code.toLowerCase(), !!creator, name); }
+    catch (err) { mpNote((err && err.message) || 'Could not join that room. Check the code and try again.', true); return false; }
+    MP = {
+      active: true, room: room, code: code, name: name, creator: !!creator, t0: Date.now(), color: 0,
+      all: [], players: [], me: null, hostPeer: null, isHost: false, full: false,
+      W: { ph: 'lobby', md: 'A', rd: 0, rid: 0, pl: {}, dr: ['', '', '', ''], mvp: '', ev: [] },
+      lastW: null, lastWraw: null, wFresh: false, seq: 0, seenSeq: 0, shown: '', shownRid: -1,
+      remotes: new Map(), props: [], targets: [], prevSt: {}, specPos: null, nearest: 99,
+      lastSend: -9, checkAt: state.t + 1.8, checked: false, leaving: false, board: '', lobbySig: '', lobbyT: 0,
+      self: { grp: P, pl: player, death: null, local: true }, results: null
+    };
+    MP.unsub = room.onPeers(() => { MP.dirty = true; }, () => {});
+    state.mode = 'mp';
+    ghosts.forEach((g) => { g.mode = 'off'; g.grp.visible = false; });
+    pumpkins.forEach((p) => { p.state = 'free'; p.g.visible = false; });
+    prize.visible = false; doorBeam.visible = false; gift.visible = false;
+    mpSetDoors('A');
+    P.position.set(CFG.start.x, 0, CFG.start.z);
+    MP.dirty = true;
+    mpPublish(true);
+    $mp('mpEntry').hidden = true; $mp('mpLobby').hidden = false;
+    $mp('mpRoomCode').textContent = code;
+    mpNote('');
+    showOnly('mpVeil');
+    return true;
+  }
+  function mpLeave(message) {
+    if (!MP) return;
+    const m = MP;
+    m.active = false; m.leaving = true;
+    try { m.unsub && m.unsub(); } catch (err) { /* ignore */ }
+    try { m.room.leave(); } catch (err) { /* ignore */ }
+    m.remotes.forEach((av) => scene.remove(av.grp));
+    m.props.forEach((o) => scene.remove(o));
+    MP = null;
+    endInput();
+    $mp('board').hidden = true; $mp('banner').hidden = true; $mp('spec').hidden = true;
+    mpSetDoors(null);
+    doors.forEach((d) => { d.label.visible = false; });
+    recolor(player, 0);
+    P.rotation.set(0, Math.PI, 0); P.scale.set(1, 1, 1); P.visible = true;
+    state.round = 0; state.mode = 'ready';
+    resetRun();
+    $mp('mpEntry').hidden = false; $mp('mpLobby').hidden = true;
+    showOnly('startVeil');
+    $mp('startNote').textContent = message || '';
+  }
+
+  /* ---- who is in the room, who hosts ---- */
+  function mpIngest() {
+    const raw = MP.room.peers();
+    const list = [];
+    for (const p of raw) if (p.kind === 'viewer' && p.presence && typeof p.presence.n === 'string') list.push(p);
+    list.sort((a, b) => ((b.presence.cr || 0) - (a.presence.cr || 0)) || ((a.presence.t0 || 0) - (b.presence.t0 || 0)) || (a.peer < b.peer ? -1 : 1));
+    MP.all = list;
+    const me = list.find((p) => p.isMe && p.sameTab);
+    MP.me = me ? me.peer : null;
+    MP.players = list.slice(0, 4);
+    MP.full = !!me && MP.players.indexOf(me) < 0;
+    MP.hostPeer = list.length ? (list.find((p) => (p.presence.cr | 0) === 1) || {}).peer || null : null;
+    const was = MP.isHost;
+    MP.isHost = !!MP.me && MP.hostPeer === MP.me;
+    const hw = list.length && list[0].presence.w;
+    if (!MP.isHost && hw && hw !== MP.lastWraw) { MP.lastWraw = hw; MP.lastW = hw; MP.wFresh = true; }
+    if (MP.isHost && !was) {
+      MP.seq = Math.max(MP.seq, MP.W.ev.reduce((m, e) => Math.max(m, e.q), 0));
+      if (MP.lastW && MP.lastW.ph === 'play') mpAdopt();
+    }
+    // keep colours unique: if an earlier player already wears mine, take the first free one
+    if (me) {
+      const mine = me.presence.c | 0, idx = list.indexOf(me);
+      if (list.slice(0, idx).some((p) => (p.presence.c | 0) === mine)) {
+        const used = list.filter((p) => p !== me).map((p) => p.presence.c | 0);
+        let c = 0; while (used.indexOf(c) >= 0 && c < 3) c++;
+        MP.color = c; recolor(player, c); mpPublish(true);
+      }
+    }
+  }
+  function mpName(peer) {
+    const p = MP.all.find((q) => q.peer === peer);
+    return p ? cleanName(p.presence.n) || 'Player' : 'Someone';
+  }
+  function mpColor(peer) {
+    const p = MP.all.find((q) => q.peer === peer);
+    return p ? (p.presence.c | 0) % 4 : 0;
+  }
+  function mpPos(peer) {
+    if (peer === MP.me) return { x: P.position.x, z: P.position.z, y: jmp.y };
+    const p = MP.all.find((q) => q.peer === peer);
+    return p ? { x: +p.presence.x || 0, z: +p.presence.z || 0, y: +p.presence.y || 0 } : { x: 0, z: 0, y: 0 };
+  }
+  const alive = (e) => !!e && (e.t === 'run' || e.t === 'key');
+  function mpBuildTargets() {
+    MP.targets = [];
+    for (const peer in MP.W.pl) {
+      if (!alive(MP.W.pl[peer])) continue;
+      const q = mpPos(peer);
+      MP.targets.push({ x: q.x, z: q.z, y: q.y, peer: peer });
+    }
+  }
+  function mpAdmission() {
+    const others = MP.all.filter((p) => !p.isMe);
+    if (others.length >= 4) return mpLeave('That room is full (4 players).');
+    if (others.some((p) => p.presence.w && p.presence.w.ph && p.presence.w.ph !== 'lobby')) return mpLeave('That match is already in progress. Join again between rounds.');
+    if (!MP.creator && others.length === 0) return mpLeave('No open room has that code. Check it and try again.');
+  }
+
+  /* ---- publishing my state (and, for the host, the world) ---- */
+  function mpWorld() {
+    const pu = [];
+    pumpkins.forEach((p, i) => { if (p.state === 'in' || p.state === 'idle') pu.push(i, r1(p.x), r1(p.z)); });
+    const en = [];
+    for (const g of state.roster) {
+      const m = g.mode === 'off' ? 0 : g.mode === 'gone' ? 1 : g.mode === 'chase' ? 3 : 2;
+      en.push(m, r1(g.grp.position.x), r1(g.grp.position.z));
+    }
+    const W = MP.W;
+    return { ph: W.ph, md: W.md, rd: W.rd, rid: W.rid, tl: r1(state.timeLeft), pu: pu, en: en, pl: W.pl, dr: W.dr, mvp: W.mvp, ev: W.ev };
+  }
+  function mpPublish(force) {
+    if (!MP || !MP.active) return;
+    const play = MP.W.ph === 'play';
+    if (!force && state.t - MP.lastSend < (play ? 0.066 : 0.4)) return;
+    MP.lastSend = state.t;
+    const patch = {
+      n: MP.name, c: MP.color, t0: MP.t0, cr: MP.creator ? 1 : 0,
+      x: r2(P.position.x), z: r2(P.position.z), y: r2(jmp.y), r: r2(P.rotation.y), s: r1(Math.hypot(pv.x, pv.z))
+    };
+    if (MP.isHost) { patch.w = mpWorld(); MP.sentW = true; }
+    else if (MP.sentW) { patch.w = null; MP.sentW = false; }
+    try { const pr = MP.room.presence(patch); if (pr && pr.catch) pr.catch(() => {}); } catch (err) { /* transient */ }
+  }
+
+  /* ---- events (funny messages) ---- */
+  function mpEvent(k, peer, text) {
+    MP.W.ev.push({ q: ++MP.seq, k: k, p: peer, t: String(text).slice(0, 84) });
+    MP.lastSend = -9;   // tell everyone straight away, not at the next 0.4s tick
+    while (MP.W.ev.length > 4) MP.W.ev.shift();
+  }
+  let bannerT = 0;
+  function banner(text) {
+    const b = $mp('banner');
+    b.textContent = text; b.hidden = false;
+    void b.offsetWidth; b.classList.add('on');
+    clearTimeout(bannerT);
+    bannerT = setTimeout(() => b.classList.remove('on'), 3400);
+  }
+
+  /* ---- host: start a match, run the world ---- */
+  function mpHostStart(md, rd) {
+    const W = MP.W;
+    W.ph = 'play'; W.md = md; W.rd = rd; W.rid++; W.mvp = ''; W.ev = []; W.dr = ['', '', '', '']; W.pl = {};
+    MP.players.forEach((p) => { W.pl[p.peer] = { s: 0, t: 'run', d: -1, w: '' }; });
+    state.round = rd;
+    const R = cur();
+    state.timeLeft = ROUND_TIME; state.spawned = 0; state.wave = 0;
+    pumpkins.forEach((p) => { p.state = 'free'; p.g.visible = false; });
+    ghosts.forEach((g) => { g.mode = 'off'; g.grp.visible = false; });
+    if (R.kind === 'witch') applyWitchPalette(R.palette);
+    state.roster = ghosts.filter((g) => g.kind === R.kind).slice(0, R.count);
+    MP.targets = MP.players.map((p, i) => ({ x: CFG.start.x + (i - 1.5) * 3.2, z: CFG.start.z, y: 0, peer: p.peer }));
+    spawnWaves(0);
+    spawnBatch(1, 14, 34);
+    state.alive = state.roster.filter((g) => g.mode !== 'off').length;
+    MP.seenSeq = MP.seq;
+    mpPhaseSync();
+  }
+  function mpHostTick(dt) {
+    const W = MP.W;
+    state.timeLeft -= dt;
+    if (state.timeLeft <= 0) { state.timeLeft = 0; mpTimeUp(); return; }
+    if (spawnWaves(ROUND_TIME - state.timeLeft) > 0) mpEvent('info', '', cur().kind === 'witch' ? 'More witches have arrived!' : 'More ghosts have arrived!');
+    let active = 0;
+    for (const p of pumpkins) if (p.state === 'idle' || p.state === 'in') active++;
+    if (active < 1) spawnBatch(1, 8, 999);   // never leave the map without a collectible
+    // players who left the room
+    for (const peer in W.pl) if (alive(W.pl[peer]) && !MP.all.some((p) => p.peer === peer)) mpKill(peer, 'left');
+    // keys at doors
+    for (const peer in W.pl) {
+      const e = W.pl[peer];
+      if (!e || e.t !== 'key') continue;
+      const q = mpPos(peer);
+      for (let k = 0; k < 4; k++) {
+        const d = doors[k];
+        if (!d.enabled || W.dr[k]) continue;
+        if (Math.hypot(q.x - DOORS[k].x, q.z - DOORS[k].z) < DOORS[k].r) { mpClaim(peer, k); break; }
+      }
+    }
+    mpCheckEnd();
+  }
+  function mpPicker(p) {
+    let best = null, bd = CFG.grabDist;
+    for (const peer in MP.W.pl) {
+      const e = MP.W.pl[peer];
+      if (!e || e.t !== 'run') continue;
+      const q = mpPos(peer), d = Math.hypot(q.x - p.x, q.z - p.z);
+      if (d < bd && q.y < 1.8) { bd = d; best = peer; }
+    }
+    return best;
+  }
+  function mpCollect(p, peer) {
+    const e = MP.W.pl[peer];
+    p.state = 'pop'; p.t = 0;
+    burst(p.x, 1.4, p.z);
+    e.s++;
+    if (e.s >= NEED) {
+      e.t = 'key';
+      mpEvent('key', peer, mpName(peer) + ' forged a key! Run for a door!');
+      return;
+    }
+    spawnBatch(5, 8, 999);
+  }
+  function mpClaim(peer, k) {
+    const W = MP.W, e = W.pl[peer];
+    W.dr[k] = peer; e.t = 'safe'; e.d = k;
+    const nm = mpName(peer);
+    if (!W.mvp) { W.mvp = peer; mpEvent('mvp', peer, nm + ' is the MVP! First through a door.'); }
+    else mpEvent('door', peer, nm + ' claimed door ' + (k + 1) + '!');
+    // last door standing: once the doors are gone, everyone left outside is out
+    const open = doors.filter((d) => d.enabled).length;
+    if (W.md === 'B' && W.dr.filter(Boolean).length >= open) {
+      for (const other in W.pl) if (alive(W.pl[other])) mpKill(other, 'door');
+    }
+  }
+  function mpCatch(peer, g) { mpKill(peer, g.kind === 'witch' ? 'witch' : 'catch'); }
+  function mpKill(peer, why) {
+    const e = MP.W.pl[peer];
+    if (!e || !alive(e)) return;
+    e.t = 'dead'; e.w = why;
+    const list = MSG[why] || MSG.catch;
+    mpEvent('dead', peer, list[(Math.random() * list.length) | 0].replace('{n}', mpName(peer)));
+  }
+  function mpTimeUp() {
+    for (const peer in MP.W.pl) if (alive(MP.W.pl[peer])) mpKill(peer, 'time');
+    mpCheckEnd(true);
+  }
+  function mpCheckEnd(force) {
+    const W = MP.W;
+    if (W.ph !== 'play') return;
+    if (force || !Object.keys(W.pl).some((p) => alive(W.pl[p]))) {
+      W.ph = 'results';
+      MP.lastSend = -9;
+      ghosts.forEach((g) => { g.mode = 'off'; g.grp.visible = false; });
+      mpPhaseSync();
+    }
+  }
+  // the page of a new host picks the world up from the last snapshot it saw
+  function mpAdopt() {
+    const w = MP.lastW;
+    state.round = w.rd; state.timeLeft = w.tl;
+    const el = ROUND_TIME - w.tl, R = cur();
+    state.wave = 0; while (state.wave < R.waves.length && el >= R.waves[state.wave][0]) state.wave++;
+    state.spawned = 40;
+    for (const g of state.roster) {
+      g.lostT = 0; g.path = null; g.sx = g.lastX = g.grp.position.x; g.sz = g.lastZ = g.grp.position.z;
+      if (g.mode === 'gone') g.respawnT = 2;
+    }
+    mpEvent('info', '', 'The host left. ' + mpName(MP.me) + ' is the new host.');
+  }
+
+  /* ---- clients: take the host's world ---- */
+  function mpApplyW(w) {
+    MP.W = { ph: w.ph, md: w.md, rd: w.rd, rid: w.rid, pl: w.pl || {}, dr: w.dr || ['', '', '', ''], mvp: w.mvp || '', ev: w.ev || [] };
+    mpPhaseSync();
+    if (w.ph !== 'play') return;
+    state.timeLeft = w.tl;
+    // pumpkins: slot ids match the host's pool
+    const seen = {};
+    const pu = w.pu || [];
+    for (let i = 0; i + 2 < pu.length; i += 3) {
+      const id = pu[i], p = pumpkins[id];
+      if (!p) continue;
+      seen[id] = true;
+      if (p.state === 'free' || p.state === 'pop') {
+        p.state = 'in'; p.t = 0; p.x = pu[i + 1]; p.z = pu[i + 2];
+        p.g.position.set(p.x, 3, p.z); p.g.scale.setScalar(0.01); p.g.visible = true;
+      } else { p.x = pu[i + 1]; p.z = pu[i + 2]; }
+    }
+    pumpkins.forEach((p, i) => { if (!seen[i] && (p.state === 'in' || p.state === 'idle')) { p.state = 'pop'; p.t = 0; burst(p.x, 1.4, p.z); } });
+    // enemies
+    const en = w.en || [], names = ['off', 'gone', 'search', 'chase'];
+    state.roster.forEach((g, i) => {
+      if (i * 3 + 2 >= en.length) return;
+      const mode = names[en[i * 3]], x = en[i * 3 + 1], z = en[i * 3 + 2];
+      if (mode === 'off' || mode === 'gone') {
+        if (mode === 'gone' && g.mode !== 'gone' && g.mode !== 'off') burst(g.grp.position.x, 2, g.grp.position.z, ghostSparkMat, 12);
+        g.mode = mode; g.grp.visible = false; return;
+      }
+      if (g.mode === 'off' || g.mode === 'gone') {
+        g.grp.position.set(x, 1, z); g.appear = 0; g.grp.scale.setScalar(0.01); g.grp.visible = true;
+        burst(x, 2, z, ghostSparkMat, 10);
+      }
+      g.mode = mode; g.tx = x; g.tz = z;
+    });
+  }
+  function mpSmoothEnemies(dt) {
+    const k = 1 - Math.exp(-14 * dt);
+    for (const g of state.roster) {
+      if (g.mode === 'off' || g.mode === 'gone' || g.tx === undefined) continue;
+      const gp = g.grp.position, dx = g.tx - gp.x, dz = g.tz - gp.z, d = Math.hypot(dx, dz);
+      gp.x += dx * k; gp.z += dz * k;
+      g.moved = d > 0.15;
+      if (g.moved) { g.vx = dx / d; g.vz = dz / d; }
+    }
+  }
+
+  /* ---- phases, shared by host and clients ---- */
+  function mpPhaseSync() {
+    const W = MP.W;
+    if (W.ph !== 'lobby' && !MP.isHost && !W.pl[MP.me]) return;   // a match is running without me: wait (and get turned away)
+    if (W.ph === 'play') { if (MP.shownRid !== W.rid || MP.shown !== 'play') mpBeginRound(); }
+    else if (W.ph === 'results') { if (MP.shown !== 'results') mpShowResults(); }
+    else if (MP.shown !== 'lobby') mpShowLobby();
+  }
+  function mpBeginRound() {
+    const W = MP.W;
+    state.mode = 'mp';
+    state.round = W.rd;
+    const R = cur();
+    if (R.kind === 'witch') applyWitchPalette(R.palette);
+    state.roster = ghosts.filter((g) => g.kind === R.kind).slice(0, R.count);
+    if (!MP.isHost) {
+      ghosts.forEach((g) => { g.mode = 'off'; g.grp.visible = false; g.tx = undefined; });
+      pumpkins.forEach((p) => { p.state = 'free'; p.g.visible = false; });
+      state.alive = 0;
+    }
+    mpSetDoors(W.md);
+    MP.props.forEach((o) => scene.remove(o)); MP.props = [];
+    const idx = Math.max(0, MP.players.findIndex((p) => p.isMe && p.sameTab));
+    P.position.set(CFG.start.x + (idx - 1.5) * 3.2, 0, CFG.start.z);
+    P.rotation.set(0, Math.PI, 0); P.scale.set(1, 1, 1); P.visible = true;
+    pv.x = 0; pv.z = 0; jmp.y = 0; jmp.vy = 0; jmp.grounded = true; jmp.squash = 0; jumpBuf = 0;
+    state.yaw = 0; state.pitch = 0.42;
+    prize.visible = false; doorBeam.visible = false; gift.visible = false;
+    MP.self.death = null;
+    MP.remotes.forEach((av) => { av.death = null; av.grp.visible = true; av.grp.scale.setScalar(1); av.first = true; });
+    MP.prevSt = {};
+    for (const k in W.pl) MP.prevSt[k] = W.pl[k].t;
+    MP.seenSeq = MP.isHost ? MP.seq : W.ev.reduce((m, e) => Math.max(m, e.q), 0);
+    MP.shown = 'play'; MP.shownRid = W.rid; MP.specPos = null;
+    showOnly(null);
+    $mp('jumpBtn').hidden = false;
+    $mp('board').hidden = false;
+    $mp('spec').hidden = true;
+    lockPointer();
+    banner(W.md === 'A' ? 'Four Doors! Get 20 pumpkins, then claim a door.' : 'Last Door Standing! Only three doors for everyone.');
+    mpPublish(true);
+  }
+  function mpShowLobby() {
+    MP.shown = 'lobby';
+    state.mode = 'mp';
+    endInput();
+    ghosts.forEach((g) => { g.mode = 'off'; g.grp.visible = false; });
+    pumpkins.forEach((p) => { p.state = 'free'; p.g.visible = false; });
+    prize.visible = false;
+    MP.props.forEach((o) => scene.remove(o)); MP.props = [];
+    mpSetDoors('A');
+    MP.remotes.forEach((av) => { av.grp.visible = false; });
+    P.position.set(CFG.start.x, 0, CFG.start.z); P.rotation.set(0, Math.PI, 0); P.scale.set(1, 1, 1); P.visible = true;
+    $mp('board').hidden = true; $mp('spec').hidden = true;
+    MP.specPos = null;
+    showOnly('mpVeil');
+    $mp('mpEntry').hidden = true; $mp('mpLobby').hidden = false;
+    MP.lobbySig = '';
+  }
+  function mpShowResults() {
+    MP.shown = 'results';
+    endInput();
+    const W = MP.W, rows = [];
+    for (const peer in W.pl) rows.push({ peer: peer, e: W.pl[peer] });
+    const rank = (r) => (r.peer === W.mvp ? 0 : r.e.t === 'safe' ? 1 : 2);
+    rows.sort((a, b) => rank(a) - rank(b) || (a.e.t === 'safe' && b.e.t === 'safe' ? a.e.d - b.e.d : 0) || b.e.s - a.e.s);
+    const tb = $mp('mpResRows');
+    tb.textContent = '';
+    rows.forEach((r) => {
+      const tr = document.createElement('tr'), td0 = document.createElement('td'), td1 = document.createElement('td'), td2 = document.createElement('td');
+      td0.textContent = (r.peer === W.mvp ? 'MVP ' : '') + mpName(r.peer) + (r.peer === MP.me ? ' (you)' : '');
+      td0.style.color = MPC[mpColor(r.peer)].css;
+      td1.className = 'n'; td1.textContent = r.e.s + ' pumpkins';
+      td2.className = 'f';
+      td2.textContent = r.e.t === 'safe' ? 'Door ' + (r.e.d + 1) : { catch: 'Caught by a ghost', witch: 'Caught by a witch', door: 'No door left', time: 'Out of time', left: 'Left the room' }[r.e.w] || 'Eliminated';
+      tr.append(td0, td1, td2); tb.append(tr);
+    });
+    const mv = W.mvp ? mpName(W.mvp) : '';
+    $mp('mpMvp').textContent = mv ? 'MVP: ' + mv : 'Nobody made it to a door';
+    $mp('mpResTitle').textContent = 'Round ' + (W.rd + 1) + ' over';
+    const host = MP.isHost, last = W.rd >= ROUNDS.length - 1;
+    $mp('mpNext').hidden = !host || last;
+    $mp('mpToLobby').hidden = !host;
+    $mp('mpResNote').textContent = host ? '' : 'Waiting for the host to pick what happens next...';
+    $mp('board').hidden = false;
+    showOnly('mpResVeil');
+  }
+
+  /* ---- reflect status changes and events on every screen ---- */
+  function mpAvatar(peer) { return peer === MP.me ? MP.self : MP.remotes.get(peer); }
+  function mpReflect() {
+    const W = MP.W;
+    for (const peer in W.pl) {
+      const e = W.pl[peer], prev = MP.prevSt[peer];
+      if (e.t === prev) continue;
+      MP.prevSt[peer] = e.t;
+      const av = mpAvatar(peer);
+      if (e.t === 'dead' && av && !av.death) {
+        av.death = { t: 0, why: e.w, x: av.grp.position.x, z: av.grp.position.z, y0: av.grp.position.y, rot: av.grp.rotation.y, done: false };
+        burst(av.grp.position.x, 2, av.grp.position.z, ghostSparkMat, 14);
+      }
+      if (peer === MP.me && e.t === 'key') showToast('Key forged! Claim a door');
+    }
+    for (const ev of W.ev) {
+      if (ev.q <= MP.seenSeq) continue;
+      MP.seenSeq = ev.q;
+      banner(ev.t);
+    }
+    // doors follow their owners
+    for (let k = 0; k < 4; k++) {
+      const d = doors[k], owner = W.dr[k] || '';
+      if (d.owner !== owner) {
+        d.owner = owner;
+        if (owner) {
+          const col = MPC[mpColor(owner)];
+          d.field.material.color.setHex(col.hood);
+          d.lockMat.emissive.setHex(col.hood);
+          setLabel(d.label, mpName(owner), col.css);
+          burst(DOORS[k].cx + DOORS[k].nx * 1.5, 3, DOORS[k].cz + DOORS[k].nz * 1.5, undefined, 18);
+        } else { d.lockMat.emissive.setHex(0xffa520); setLabel(d.label, d.enabled ? 'DOOR ' + (k + 1) : 'SEALED', d.enabled ? '#ffc15e' : '#b9a8ff'); }
+      }
+    }
+  }
+  function mpAnimDoors(dt) {
+    const me = MP.W.pl[MP.me], haveKey = !!me && me.t === 'key';
+    doors.forEach((d, k) => {
+      const owned = !!d.owner;
+      d.open += ((owned ? 1 : 0) - d.open) * (1 - Math.exp(-3 * dt));
+      if (owned && d.open > 0.995) d.open = 1;
+      const e = d.open * d.open * (3 - 2 * d.open);
+      d.pivot.rotation.y = 1.75 * e;
+      d.field.visible = owned && d.open > 0.5;
+      if (!owned) d.lockMat.emissiveIntensity = d.enabled ? 0.5 + Math.sin(state.t * 4 + k) * 0.35 : 0.1;
+      else d.lockMat.emissiveIntensity = 1.4;
+      d.beam.visible = haveKey && d.enabled && !owned && MP.W.ph === 'play';
+    });
+  }
+
+  /* ---- remote avatars: real players, driven by their own presence ---- */
+  function mpSyncRemotes(dt) {
+    const play = MP.W.ph !== 'lobby';
+    const present = new Set();
+    for (const p of MP.players) {
+      if (p.isMe && p.sameTab) continue;
+      present.add(p.peer);
+      let av = MP.remotes.get(p.peer);
+      if (!av) {
+        const pl = makePlayer();
+        av = { peer: p.peer, pl: pl, grp: pl.group, label: makeLabel('', '#fff', 3.2), key: makeKeyMesh(), tx: 0, tz: 0, ty: 0, tr: 0, sp: 0, ph: rand(0, 6), first: true, death: null };
+        av.label.position.set(0, 4.5, 0); av.key.position.set(0, 5.5, 0); av.key.visible = false;
+        av.grp.add(av.label, av.key);
+        scene.add(av.grp);
+        MP.remotes.set(p.peer, av);
+      }
+      const pr = p.presence;
+      recolor(av.pl, (pr.c | 0) % 4);
+      av.tx = +pr.x || 0; av.tz = +pr.z || 0; av.ty = +pr.y || 0; av.tr = +pr.r || 0; av.sp = +pr.s || 0;
+      const e = MP.W.pl[p.peer], gp = av.grp.position;
+      av.grp.visible = play && !(av.death && av.death.done);
+      if (av.first) { gp.set(av.tx, av.ty, av.tz); av.grp.rotation.y = av.tr; av.first = false; }
+      if (av.death) { animDeath(av, dt); }
+      else {
+        const k = 1 - Math.exp(-16 * dt);
+        gp.x += (av.tx - gp.x) * k; gp.z += (av.tz - gp.z) * k;
+        const amt = clamp(av.sp / CFG.walk, 0, 1);
+        av.ph += dt * (4 + av.sp * 1.3);
+        av.grp.rotation.y = lerpAngle(av.grp.rotation.y, av.tr, k);
+        if (av.ty > 0.12) {   // airborne: arms up, knees tucked
+          av.pl.legs[0].rotation.x = -0.55; av.pl.legs[1].rotation.x = 0.35;
+          av.pl.arms[0].rotation.x = av.pl.arms[1].rotation.x = -2.4;
+          gp.y += (av.ty - gp.y) * k;
+        } else {
+          const sw = Math.sin(av.ph) * 0.85 * amt;
+          av.pl.legs[0].rotation.x = sw; av.pl.legs[1].rotation.x = -sw;
+          av.pl.arms[0].rotation.x = -sw * 0.9; av.pl.arms[1].rotation.x = sw * 0.9;
+          gp.y += (Math.abs(Math.sin(av.ph)) * 0.12 * amt - gp.y) * k;
+        }
+      }
+      av.key.visible = !!e && e.t === 'key' && !av.death;
+      av.key.rotation.y += dt * 2;
+      setLabel(av.label, mpName(p.peer) + (e && e.t === 'safe' ? ' - safe' : ''), MPC[(pr.c | 0) % 4].css);
+    }
+    MP.remotes.forEach((av, peer) => {
+      if (present.has(peer)) return;
+      burst(av.grp.position.x, 2, av.grp.position.z, ghostSparkMat, 8);
+      scene.remove(av.grp); MP.remotes.delete(peer);
+    });
+  }
+  // funny eliminations
+  function animDeath(av, dt) {
+    const d = av.death, g = av.grp;
+    if (d.done) return;
+    d.t += dt;
+    const t = d.t;
+    if (d.why === 'catch' || d.why === 'witch') {            // yeeted into the sky
+      g.position.y = d.y0 + t * 6 + t * t * 14;
+      g.rotation.y = d.rot + t * 16; g.rotation.x = t * 3;
+      g.scale.setScalar(Math.max(0.01, 1 - Math.max(0, t - 0.9) / 0.7));
+      if (Math.random() < dt * 12) burst(g.position.x, g.position.y + 1.5, g.position.z, ghostSparkMat, 1, true);
+      if (t > 1.6) { d.done = true; g.visible = false; g.rotation.x = 0; burst(g.position.x, g.position.y + 1, g.position.z, undefined, 18); }
+    } else if (d.why === 'door') {                           // stretched, then pancaked, then a tombstone
+      if (t < 0.25) { const k = t / 0.25; g.scale.set(1 - 0.15 * k, 1 + 0.35 * k, 1 - 0.15 * k); }
+      else {
+        const f = Math.min(1, (t - 0.25) / 0.12);
+        g.scale.set(1 + 0.9 * f, 1.35 - 1.23 * f, 1 + 0.9 * f); g.position.y = 0;
+        if (Math.random() < dt * 14) burst(g.position.x + rand(-1, 1), 1.6, g.position.z + rand(-1, 1), ghostSparkMat, 1, true);
+      }
+      if (t > 1.8) { d.done = true; g.visible = false; burst(d.x, 1, d.z, undefined, 14); mpTomb(d.x, d.z); }
+    } else if (d.why === 'time') {                           // baked into a pumpkin pie
+      const f = Math.min(1, t / 1.0);
+      g.scale.set(1 + f * 0.6, Math.max(0.05, 1 - f * 0.95), 1 + f * 0.6); g.position.y = 0;
+      g.rotation.y = d.rot + t * 6;
+      if (t > 1.3) {
+        d.done = true; g.visible = false; burst(d.x, 1, d.z, undefined, 14);
+        const pk = makePumpkin(0.9, false, true); pk.position.set(d.x, 0, d.z); scene.add(pk); MP.props.push(pk);
+      }
+    } else { d.done = true; g.visible = false; burst(d.x, 2, d.z, ghostSparkMat, 12); }
+  }
+  function mpTomb(x, z) {
+    const g = new THREE.Group(), stone = mat(0x8a82a0);
+    g.add(box(1.6, 2.0, 0.5, stone, 0, 1.0, 0), box(1.6, 0.5, 0.5, stone, 0, 2.15, 0), box(2.2, 0.3, 1.0, stone, 0, 0.15, 0.2));
+    const lbl = makeLabel('R.I.P.', '#e8dcc8', 2.6); lbl.position.set(0, 1.4, 0.6); g.add(lbl);
+    g.position.set(x, 0, z); g.rotation.y = rand(-0.4, 0.4);
+    scene.add(g); MP.props.push(g);
+  }
+
+  /* ---- scoreboard and HUD ---- */
+  function mpBoard() {
+    const W = MP.W;
+    const sig = MP.players.map((p) => p.peer + ':' + cleanName(p.presence.n) + ':' + ((p.presence.c | 0) % 4) + ':' + (W.pl[p.peer] ? W.pl[p.peer].s + W.pl[p.peer].t : '')).join('|') + MP.me;
+    if (sig === MP.board) return;
+    MP.board = sig;
+    const el = $mp('board');
+    el.textContent = '';
+    MP.players.forEach((p) => {
+      const e = W.pl[p.peer];
+      const row = document.createElement('div'), dot = document.createElement('span'), nm = document.createElement('span'), sc = document.createElement('span');
+      row.className = 'brow' + (p.peer === MP.me ? ' me' : '') + (e && e.t === 'dead' ? ' dead' : '');
+      dot.className = 'dot'; dot.style.background = MPC[(p.presence.c | 0) % 4].css; dot.style.color = MPC[(p.presence.c | 0) % 4].css;
+      nm.className = 'nm'; nm.textContent = cleanName(p.presence.n) + (W.mvp === p.peer ? ' (MVP)' : '');
+      sc.className = 'sc';
+      sc.textContent = !e ? '-' : e.t === 'dead' ? 'out' : e.t === 'safe' ? 'door ' + (e.d + 1) : e.t === 'key' ? 'key!' : e.s + '/' + NEED;
+      row.append(dot, nm, sc); el.append(row);
+    });
+  }
+  function mpHud() {
+    const R = cur(), W = MP.W, e = MP.me ? W.pl[MP.me] : null;
+    setTxt(roundEl, state.round + 1);
+    setTxt(scoreEl, e ? e.s : 0);
+    setTxt(targetEl, '/' + NEED);
+    setTxt(timerEl, Math.ceil(state.timeLeft));
+    timerBox.classList.toggle('warn', W.ph === 'play' && state.timeLeft <= 10);
+    setTxt(ghostEl, state.alive);
+    setTxt(ghostTotEl, '/' + R.count);
+    setTxt(ghostLblEl, R.kind === 'witch' ? 'Witches' : 'Ghosts');
+    setTxt(keyEl, !e ? 'Locked' : { run: 'Locked', key: 'Claim a door!', safe: 'Door secured!', dead: 'Eliminated' }[e.t]);
+    keyEl.classList.toggle('on', !!e && (e.t === 'key' || e.t === 'safe'));
+    if (W.ph !== 'lobby') mpBoard();
+  }
+
+  /* ---- lobby screen ---- */
+  function mpRenderLobby() {
+    const W = MP.W, host = MP.isHost;
+    const sig = MP.players.map((p) => p.peer + cleanName(p.presence.n) + (p.presence.c | 0)).join('|') + W.md + W.rd + host + MP.hostPeer + MP.me;
+    if (sig === MP.lobbySig) return;
+    MP.lobbySig = sig;
+    const ul = $mp('mpPlayers');
+    ul.textContent = '';
+    for (let i = 0; i < 4; i++) {
+      const p = MP.players[i], li = document.createElement('li');
+      const dot = document.createElement('span'), nm = document.createElement('span'), tag = document.createElement('em');
+      dot.className = 'dot'; nm.className = 'nm';
+      if (p) {
+        const c = MPC[(p.presence.c | 0) % 4].css;
+        dot.style.background = c; dot.style.color = c;
+        nm.textContent = cleanName(p.presence.n);
+        tag.textContent = (p.peer === MP.hostPeer ? 'host ' : '') + (p.peer === MP.me ? 'you' : '');
+      } else { li.className = 'empty'; dot.style.background = '#6a43a8'; nm.textContent = 'Waiting for player...'; }
+      li.append(dot, nm, tag); ul.append(li);
+    }
+    document.querySelectorAll('input[name=mpMode]').forEach((r) => { r.checked = r.value === W.md; r.disabled = !host; });
+    $mp('modeA').classList.toggle('on', W.md === 'A'); $mp('modeB').classList.toggle('on', W.md === 'B');
+    $mp('modeA').classList.toggle('lock', !host); $mp('modeB').classList.toggle('lock', !host);
+    $mp('mpRound').value = String(W.rd); $mp('mpRound').disabled = !host;
+    $mp('mpStart').hidden = !host;
+    mpNote(host ? (MP.players.length < 2 ? 'Share the code. You can start alone to practise, but the doors are more fun with friends.' : 'Everyone here is in. Pick a mode and start!') : 'Waiting for the host to start the match...');
+  }
+
+  /* ---- the online frame ---- */
+  function mpFrame(dt) {
+    mpIngest();
+    if (MP.all.length && !MP.hostPeer) { mpLeave('The room host disconnected. Create a new room to continue.'); return 99; }
+    if (!MP.me) { state.yaw += dt * 0.12; return 99; }
+    if (!MP.checked && state.t >= MP.checkAt) { MP.checked = true; mpAdmission(); if (!MP) return 99; }
+    if (MP.full) { mpLeave('That room is full (4 players).'); return 99; }
+    if (!MP.isHost && MP.wFresh) { MP.wFresh = false; mpApplyW(MP.lastW); }
+    if (MP.isHost) mpPhaseSync();
+    const play = MP.W.ph === 'play';
+    mpBuildTargets();
+    const me = MP.W.pl[MP.me];
+    let nearest = 99;
+    if (play) {
+      if (MP.isHost) {
+        mpHostTick(dt);
+        if (MP.W.ph === 'play') { nearest = updateGhosts(dt, true); updatePumpkins(dt, true); }
+      } else { mpSmoothEnemies(dt); updateGhosts(dt, false); updatePumpkins(dt, false); }
+    } else if (MP.shown !== 'lobby') { updateGhosts(dt, false); updatePumpkins(dt, false); }
+    mpReflect();
+    // my own avatar
+    if (play && me && me.t !== 'dead') updatePlayer(dt);
+    else if (MP.self.death) animDeath(MP.self, dt);
+    else animatePlayer(0, dt);
+    if (MP.self.death && MP.self.death.done) P.visible = false;
+    mpSyncRemotes(dt);
+    mpAnimDoors(dt);
+    // the key floats over its owner
+    if (play && me && me.t === 'key') {
+      prize.visible = true;
+      prize.position.x += (P.position.x - prize.position.x) * (1 - Math.exp(-8 * dt));
+      prize.position.z += (P.position.z - prize.position.z) * (1 - Math.exp(-8 * dt));
+      prize.position.y = 4.5 + P.position.y + Math.sin(state.t * 3) * 0.2;
+      prize.rotation.y += dt * 2;
+    } else prize.visible = false;
+    // danger vignette: distance to the closest enemy that is out and about
+    for (const g of state.roster) if (g.mode === 'chase' || g.mode === 'search') nearest = Math.min(nearest, Math.hypot(g.grp.position.x - P.position.x, g.grp.position.z - P.position.z));
+    // spectate once eliminated
+    MP.specPos = null;
+    if (play && me && me.t === 'dead') {
+      for (const p of MP.players) {
+        const e = MP.W.pl[p.peer], av = MP.remotes.get(p.peer);
+        if (p.peer !== MP.me && alive(e) && av) { MP.specPos = av.grp.position; $mp('spec').textContent = 'You are out. Watching ' + mpName(p.peer); break; }
+      }
+      $mp('spec').hidden = !MP.specPos;
+    } else $mp('spec').hidden = true;
+    if (MP.shown === 'lobby' || !MP.shown) { state.yaw += dt * 0.12; mpRenderLobby(); }
+    mpPublish(false);
+    return nearest;
+  }
+
+  /* ---- wiring for the online screens ---- */
+  $mp('mpBtn').addEventListener('click', () => {
+    try { $mp('mpName').value = localStorage.getItem('pumpkin-panic-name') || ''; } catch (err) { /* optional */ }
+    if (!$mp('mpName').value) $mp('mpName').value = 'Player' + ((Math.random() * 90 + 10) | 0);
+    $mp('mpEntry').hidden = false; $mp('mpLobby').hidden = true;
+    mpNote(!window.PPAuth || !window.PPAuth.user ? 'Sign in with Google to create or join an online room.' : '', !window.PPAuth || !window.PPAuth.user);
+    showOnly('mpVeil');
+  });
+  $mp('mpCreate').addEventListener('click', () => { mpJoin(codeGen(), true); });
+  $mp('mpJoin').addEventListener('click', () => {
+    const c = $mp('mpCode').value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (c.length !== 4) { mpNote('Type the 4-letter room code.', true); return; }
+    mpJoin(c, false);
+  });
+  $mp('mpBack').addEventListener('click', () => { if (MP) mpLeave(); else showOnly('startVeil'); });
+  $mp('mpExit').addEventListener('click', () => { mpLeave(); });
+  document.querySelectorAll('input[name=mpMode]').forEach((r) => r.addEventListener('change', () => {
+    if (MP && MP.isHost && r.checked) { MP.W.md = r.value; MP.lobbySig = ''; mpPublish(true); }
+  }));
+  $mp('mpRound').addEventListener('change', () => { if (MP && MP.isHost) { MP.W.rd = +$mp('mpRound').value | 0; MP.lobbySig = ''; mpPublish(true); } });
+  $mp('mpStart').addEventListener('click', () => { if (MP && MP.isHost) mpHostStart(MP.W.md, MP.W.rd); });
+  $mp('mpNext').addEventListener('click', () => { if (MP && MP.isHost) mpHostStart(MP.W.md, Math.min(ROUNDS.length - 1, MP.W.rd + 1)); });
+  $mp('mpToLobby').addEventListener('click', () => { if (MP && MP.isHost) { MP.W.ph = 'lobby'; mpPhaseSync(); mpPublish(true); } });
+
+
+  /* ===================== wiring ===================== */
+  $('playBtn').addEventListener('click', startGame);
+  $('restartBtn').addEventListener('click', startGame);   // restarts only the current round
+  $('nextBtn').addEventListener('click', () => { state.round = (state.round + 1) % ROUNDS.length; startGame(); });
+  $('jumpBtn').addEventListener('pointerdown', (e) => { e.preventDefault(); jumpBuf = 0.14; });
+  $('playBtn').focus({ preventScroll: true });
+
+  resetRun();
+  camera.position.set(0, 6, 30);
+  requestAnimationFrame(loop);
+})();
+</script>
+
+<script>
+(function () {
+  'use strict';
+  const config = {
+    apiKey: "AIzaSyCwruQSc1hhnGfwt7z3P4p6o9D9_cn6e40",
+    authDomain: "pumpkin-panic-e401e.firebaseapp.com",
+    databaseURL: "https://pumpkin-panic-e401e-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "pumpkin-panic-e401e",
+    storageBucket: "pumpkin-panic-e401e.firebasestorage.app",
+    messagingSenderId: "140175278810",
+    appId: "1:140175278810:web:4568d540ee1dfefd7adbe3"
+  };
+  const statusEl = document.getElementById('ppAccountStatus');
+  const messageEl = document.getElementById('ppAuthMessage');
+  const signInBtn = document.getElementById('ppGoogleSignIn');
+  const signOutBtn = document.getElementById('ppSignOut');
+  let auth = null, db = null, rtdb = null, currentUser = null;
+  const say = (message, isError) => {
+    if (!messageEl) return;
+    messageEl.textContent = message || '';
+    messageEl.style.color = isError ? '#ff9a9a' : '#ffc15e';
+  };
+  const cleanPlayerName = (value) => String(value || 'Pumpkin Player').replace(/[^A-Za-z0-9 _-]/g, '').trim().slice(0, 20) || 'Pumpkin Player';
+
+  try {
+    if (!window.firebase) throw new Error('Firebase SDK did not load. Check your internet connection and reload.');
+    if (!firebase.apps.length) firebase.initializeApp(config);
+    auth = firebase.auth();
+    db = firebase.firestore();
+    rtdb = firebase.database();
+  } catch (err) {
+    say(err.message || 'Firebase could not initialize.', true);
+    if (signInBtn) signInBtn.disabled = true;
+    return;
+  }
+
+  async function ensurePlayerProfile(user) {
+    const ref = db.collection('players').doc(user.uid);
+    const snap = await ref.get();
+    const profile = {
+      uid: user.uid,
+      displayName: cleanPlayerName(user.displayName || (user.email || '').split('@')[0]),
+      email: user.email || '',
+      photoURL: user.photoURL || '',
+      lastLoginAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+    if (!snap.exists) profile.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+    await ref.set(profile, { merge: true });
+    return ref;
+  }
+
+  signInBtn.addEventListener('click', async function () {
+    say('Opening Google sign-in…');
+    signInBtn.disabled = true;
+    try {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
+      await auth.signInWithPopup(provider);
+      say('Google account connected.');
+    } catch (err) {
+      const msg = err && (err.code === 'auth/unauthorized-domain'
+        ? 'This website domain is not authorized yet. Add localhost and 127.0.0.1 in Firebase Authentication → Settings → Authorized domains.'
+        : err.message || 'Google sign-in failed.');
+      say(msg, true);
+    } finally { signInBtn.disabled = false; }
+  });
+
+  signOutBtn.addEventListener('click', async function () {
+    try { await auth.signOut(); say('Signed out. Your saved cloud progress remains in your account.'); }
+    catch (err) { say(err.message || 'Could not sign out.', true); }
+  });
+
+  auth.onAuthStateChanged(async function (user) {
+    currentUser = user || null;
+    if (!user) {
+      statusEl.textContent = 'Guest player · sign in to save your progress';
+      signInBtn.hidden = false; signOutBtn.hidden = true;
+      return;
+    }
+    statusEl.textContent = 'Signed in as ' + (user.displayName || user.email || 'Player');
+    signInBtn.hidden = true; signOutBtn.hidden = false;
+    try {
+      await ensurePlayerProfile(user);
+      const mpName = document.getElementById('mpName');
+      if (mpName && !mpName.value) mpName.value = cleanPlayerName(user.displayName || 'Player');
+      say('Player profile saved. Your solo results will sync to the cloud.');
+    } catch (err) {
+      say('Signed in, but profile save failed: ' + (err.message || 'Firestore error') + '. Check your Firestore rules.', true);
+    }
+  });
+
+  // Firebase Realtime Database room adapter. The existing game expects a small
+  // room/presence interface; this adapter maps that interface to authenticated RTDB.
+  // The room creator is the fixed host for the session. If the host closes the page,
+  // players must return to the lobby and create a new room (no silent host migration).
+  window.PPRealtime = {
+    async join(roomKey, creator, displayName) {
+      if (!auth || !auth.currentUser || !rtdb) throw new Error('Sign in with Google before online play.');
+      const uid = auth.currentUser.uid;
+      const code = String(roomKey || '').replace(/^pp-/, '').toLowerCase();
+      if (!/^[a-z0-9]{4}$/.test(code)) throw new Error('Invalid room code.');
+      const roomRef = rtdb.ref('rooms/' + code);
+      const metaRef = roomRef.child('meta');
+      const membersRef = roomRef.child('members');
+      const worldRef = roomRef.child('world');
+      const metaSnap = await metaRef.once('value');
+      if (creator) {
+        if (metaSnap.exists()) throw new Error('That room code is already in use. Create another room.');
+        await metaRef.set({ hostUid: uid, createdAt: firebase.database.ServerValue.TIMESTAMP, game: 'pumpkin-panic-v1' });
+      } else if (!metaSnap.exists()) {
+        throw new Error('Room not found. Check the 4-character code.');
+      }
+      const latestMeta = await metaRef.once('value');
+      if (!latestMeta.exists()) throw new Error('This room is no longer available.');
+      const meta = latestMeta.val() || {};
+      const existing = await membersRef.once('value');
+      const memberData = existing.val() || {};
+      const activeCount = Object.keys(memberData).length;
+      if (!memberData[uid] && activeCount >= 4) throw new Error('This room is full (maximum 4 players).');
+      const memberRef = membersRef.child(uid);
+      const presence = {
+        n: String(displayName || 'Player').slice(0, 12), c: Object.keys(memberData).length % 4,
+        t0: Date.now(), cr: meta.hostUid === uid ? 1 : 0,
+        x: 0, z: 0, y: 0, r: 0, s: 0
+      };
+      await memberRef.set({ presence: presence, joinedAt: firebase.database.ServerValue.TIMESTAMP });
+      const disconnect = memberRef.onDisconnect();
+      await disconnect.remove();
+      if (meta.hostUid === uid) {
+        await metaRef.onDisconnect().remove();
+        await worldRef.onDisconnect().remove();
+      }
+
+      let cachedMembers = memberData;
+      let cachedWorld = (await worldRef.once('value')).val() || null;
+      let peersCallback = null;
+      const notify = () => { if (typeof peersCallback === 'function') peersCallback(); };
+      const membersListener = membersRef.on('value', snap => { cachedMembers = snap.val() || {}; notify(); });
+      const worldListener = worldRef.on('value', snap => { cachedWorld = snap.val() || null; notify(); });
+      let left = false;
+      const room = {
+        peers() {
+          const rows = [];
+          for (const [peer, value] of Object.entries(cachedMembers || {})) {
+            const pr = Object.assign({}, (value && value.presence) || {});
+            if (peer === meta.hostUid && cachedWorld) pr.w = cachedWorld;
+            rows.push({ peer, kind: 'viewer', presence: pr, isMe: peer === uid, sameTab: peer === uid });
+          }
+          return rows;
+        },
+        onPeers(callback) {
+          peersCallback = callback;
+          return () => {
+            peersCallback = null;
+            membersRef.off('value', membersListener);
+            worldRef.off('value', worldListener);
+          };
+        },
+        presence(patch) {
+          if (left) return Promise.resolve();
+          const clean = Object.assign({}, patch || {});
+          const world = clean.w;
+          delete clean.w;
+          const update = memberRef.child('presence').update(clean);
+          if (world && meta.hostUid === uid) return Promise.all([update, worldRef.set(world)]);
+          return update;
+        },
+        async leave() {
+          if (left) return;
+          left = true;
+          membersRef.off('value', membersListener);
+          worldRef.off('value', worldListener);
+          await memberRef.remove().catch(() => {});
+          if (meta.hostUid === uid) {
+            await worldRef.remove().catch(() => {});
+            await metaRef.remove().catch(() => {});
+          }
+        }
+      };
+      return room;
+    }
+  };
+
+  window.PPAuth = {
+    get user() { return currentUser; },
+    async saveRun(result) {
+      if (!currentUser || !db) return;
+      try {
+        const ref = db.collection('players').doc(currentUser.uid);
+        await db.runTransaction(async function (tx) {
+          const snap = await tx.get(ref);
+          const old = snap.exists ? snap.data() : {};
+          const oldBest = Number(old.bestScore || 0);
+          const nextBest = Math.max(oldBest, Number(result.bestScore || result.score || 0));
+          tx.set(ref, {
+            uid: currentUser.uid,
+            displayName: cleanPlayerName(currentUser.displayName || (currentUser.email || '').split('@')[0]),
+            email: currentUser.email || '',
+            bestScore: nextBest,
+            lastScore: Number(result.score || 0),
+            lastRound: Number(result.round || 1),
+            lastResult: String(result.reason || 'unknown'),
+            lastMode: String(result.mode || 'solo'),
+            totalRuns: Number(old.totalRuns || 0) + 1,
+            lastPlayedAt: firebase.firestore.FieldValue.serverTimestamp()
+          }, { merge: true });
+        });
+        say('Run saved to your Pumpkin Panic account.');
+      } catch (err) {
+        say('Could not save this run: ' + (err.message || 'Firestore error'), true);
+      }
+    }
+  };
+})();
+</script>
+
+</body></html>
