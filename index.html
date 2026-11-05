@@ -1518,6 +1518,21 @@
     });
   }
   document.getElementById('settingsOpen').addEventListener('click', () => { renderKeySettings(); document.getElementById('mouseSens').value = mouseMultiplier; document.getElementById('invertY').checked = invertMouseY; try { document.getElementById('graphicsQuality').value = localStorage.getItem('pp-graphics') || 'medium'; } catch(e) {} settingsPanel.hidden = false; });
+  window.addEventListener('keydown', (e) => {
+    if (e.code !== 'Escape') return;
+    const active = document.activeElement;
+    if (active && /^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (settingsPanel.hidden) {
+      renderKeySettings();
+      document.getElementById('mouseSens').value = mouseMultiplier;
+      document.getElementById('invertY').checked = invertMouseY;
+      settingsPanel.hidden = false;
+    } else {
+      settingsPanel.hidden = true;
+    }
+  }, true);
   document.getElementById('settingsClose').addEventListener('click', () => { mouseMultiplier = Number(document.getElementById('mouseSens').value); invertMouseY = document.getElementById('invertY').checked; saveSettings(); applyGraphics(); settingsPanel.hidden = true; });
   document.getElementById('settingsReset').addEventListener('click', () => { bindings = Object.assign({}, DEFAULT_BINDINGS); mouseMultiplier = 1; invertMouseY = false; renderKeySettings(); document.getElementById('mouseSens').value = 1; document.getElementById('invertY').checked = false; saveSettings(); });
   window.addEventListener('keydown', (e) => {
@@ -3068,7 +3083,7 @@
 </script>
 
 <script>
-(function () {
+(async function () {
   'use strict';
   const config = {
     apiKey: "AIzaSyCwruQSc1hhnGfwt7z3P4p6o9D9_cn6e40",
@@ -3091,8 +3106,34 @@
   };
   const cleanPlayerName = (value) => String(value || 'Pumpkin Player').replace(/[^A-Za-z0-9 _-]/g, '').trim().slice(0, 20) || 'Pumpkin Player';
 
+  function loadScript(src) {
+    return new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = src;
+      script.onload = resolve;
+      script.onerror = () => reject(new Error('Could not load ' + src));
+      document.head.appendChild(script);
+    });
+  }
+  async function ensureFirebaseSdk() {
+    const base = 'https://cdn.jsdelivr.net/npm/firebase@10.14.1/compat/';
+    const modules = [
+      ['app', 'firebase-app-compat.js'],
+      ['auth', 'firebase-auth-compat.js'],
+      ['firestore', 'firebase-firestore-compat.js'],
+      ['database', 'firebase-database-compat.js']
+    ];
+    for (const [name, file] of modules) {
+      if (window.firebase && (name === 'app' ? firebase.initializeApp : name === 'auth' ? firebase.auth : name === 'firestore' ? firebase.firestore : firebase.database)) continue;
+      await loadScript(base + file);
+    }
+    if (!window.firebase || !firebase.auth || !firebase.firestore || !firebase.database) {
+      throw new Error('Firebase SDK could not load from either CDN. Check your connection or browser content blocker, then refresh.');
+    }
+  }
+
   try {
-    if (!window.firebase) throw new Error('Firebase SDK did not load. Check your internet connection and reload.');
+    await ensureFirebaseSdk();
     if (!firebase.apps.length) firebase.initializeApp(config);
     auth = firebase.auth();
     db = firebase.firestore();
@@ -3127,9 +3168,12 @@
       await auth.signInWithPopup(provider);
       say('Google account connected.');
     } catch (err) {
+      if (err && (err.code === 'auth/popup-blocked' || err.code === 'auth/popup-closed-by-user')) {
+        try { await auth.signInWithRedirect(provider); return; } catch (redirectErr) { err = redirectErr; }
+      }
       const msg = err && (err.code === 'auth/unauthorized-domain'
-        ? 'This website domain is not authorized yet. Add localhost and 127.0.0.1 in Firebase Authentication → Settings → Authorized domains.'
-        : err.message || 'Google sign-in failed.');
+        ? 'This website domain is not authorized. Add designlogo409-beep.github.io in Firebase Authentication → Settings → Authorized domains.'
+        : (err.code || '') + ' ' + (err.message || 'Google sign-in failed.'));
       say(msg, true);
     } finally { signInBtn.disabled = false; }
   });
@@ -3137,6 +3181,10 @@
   signOutBtn.addEventListener('click', async function () {
     try { await auth.signOut(); say('Signed out. Your saved cloud progress remains in your account.'); }
     catch (err) { say(err.message || 'Could not sign out.', true); }
+  });
+
+  auth.getRedirectResult().catch(err => {
+    say((err.code || '') + ' ' + (err.message || 'Google redirect sign-in failed.'), true);
   });
 
   auth.onAuthStateChanged(async function (user) {
