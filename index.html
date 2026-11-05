@@ -225,7 +225,7 @@
     <div id="keySettings" style="display:grid;grid-template-columns:1fr 1fr;gap:10px"></div>
     <p style="font-size:12px;color:#cbb9df">Click a key field and press the key you want to use.</p>
     <h3>Mouse</h3>
-    <label>Mouse sensitivity <input id="mouseSens" type="range" min="0.5" max="3" step="0.1" value="1"></label>
+    <label>Music volume <input id="musicVolume" type="range" min="0" max="1" step="0.05" value="0.48"></label><label>Sound effects <input id="sfxVolume" type="range" min="0" max="1" step="0.05" value="0.82"></label><label>Mouse sensitivity <input id="mouseSens" type="range" min="0.5" max="3" step="0.1" value="1"></label>
     <label style="display:block;margin-top:8px"><input id="invertY" type="checkbox"> Invert mouse Y-axis</label>
     <h3>Graphics</h3>
     <select id="graphicsQuality" style="padding:8px;border-radius:6px"><option value="low">Low</option><option value="medium" selected>Medium</option><option value="high">High</option></select>
@@ -417,6 +417,35 @@
   const stormFlash = new THREE.DirectionalLight(0xddeaff, 0);
   stormFlash.position.set(-20, 65, -30); scene.add(stormFlash);
   let stormFlashTimer = 0;
+
+  /* ===================== decorative flying bats ===================== */
+  const ppBats=[];
+  const batMat=new THREE.MeshStandardMaterial({color:0x080711,roughness:1,flatShading:true});
+  const batWingGeo=new THREE.BufferGeometry();
+  batWingGeo.setAttribute('position',new THREE.Float32BufferAttribute([0,0,0,-1.15,.18,0,-.55,-.12,.05,0,0,0,.55,-.12,.05,1.15,.18,0],3));
+  batWingGeo.setIndex([0,1,2,3,4,5]); batWingGeo.computeVertexNormals();
+  for(let i=0;i<10;i++){
+    const g=new THREE.Group(), body=new THREE.Mesh(new THREE.SphereGeometry(.12,6,5),batMat);
+    body.scale.set(1,.55,1); g.add(body);
+    const l=new THREE.Mesh(batWingGeo,batMat), r=new THREE.Mesh(batWingGeo,batMat);
+    l.position.x=-.08; r.position.x=.08; l.scale.x=-1; g.add(l,r);
+    g.userData={l,r,phase:Math.random()*Math.PI*2,speed:1.1+Math.random()*1.4,baseY:19+Math.random()*13,
+      radius:18+Math.random()*30,angle:Math.random()*Math.PI*2,drift:(Math.random()-.5)*.35};
+    g.position.set(Math.cos(g.userData.angle)*g.userData.radius,g.userData.baseY,Math.sin(g.userData.angle)*g.userData.radius);
+    scene.add(g); ppBats.push(g);
+  }
+  function updateBats(dt){
+    for(const b of ppBats){
+      const u=b.userData; u.angle+=dt*u.speed*.12; u.phase+=dt*13;
+      b.position.set(Math.cos(u.angle)*u.radius, u.baseY+Math.sin(state.t*1.7+u.phase)*1.2,
+        Math.sin(u.angle)*u.radius);
+      b.rotation.y=-u.angle+Math.PI/2;
+      const flap=Math.sin(u.phase)*.65;
+      u.l.rotation.z=flap; u.r.rotation.z=-flap;
+      const active=state.round>=2?1:.68; b.scale.setScalar(active);
+    }
+  }
+
   const camera = new THREE.PerspectiveCamera(62, 1, 0.1, 260);
 
   let W = 0, H = 0;
@@ -1739,6 +1768,8 @@
   }
 
   function gameOver(reason) {
+    if (reason === 'ghost') { ppAudioStart(); ppSfx('caught'); }
+    else if (reason === 'witch') { ppAudioStart(); ppSfx('witchCaught'); }
     state.mode = 'over';
     if (state.score > state.best) {
       state.best = state.score;
@@ -1777,7 +1808,113 @@
     tauntTimer = setTimeout(() => tauntEl.classList.remove('on'), 2600);
   }
 
+
+  /* ===================== procedural Halloween audio ===================== */
+  const PP_AUDIO = { ctx: null, master: null, music: null, sfx: null, musicVol: 0.48, sfxVol: 0.82,
+    stepT: 0, ambienceT: 0, lastNear: 99, started: false };
+  function ppAudioStart() {
+    if (PP_AUDIO.ctx) { if (PP_AUDIO.ctx.state === 'suspended') PP_AUDIO.ctx.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    const ctx = PP_AUDIO.ctx = new AC();
+    PP_AUDIO.master = ctx.createGain(); PP_AUDIO.master.gain.value = 0.8; PP_AUDIO.master.connect(ctx.destination);
+    PP_AUDIO.music = ctx.createGain(); PP_AUDIO.music.gain.value = PP_AUDIO.musicVol; PP_AUDIO.music.connect(PP_AUDIO.master);
+    PP_AUDIO.sfx = ctx.createGain(); PP_AUDIO.sfx.gain.value = PP_AUDIO.sfxVol; PP_AUDIO.sfx.connect(PP_AUDIO.master);
+    PP_AUDIO.started = true;
+    ppMusicLoop();
+  }
+  function ppTone(freq, duration, type, volume, dest, endFreq) {
+    if (!PP_AUDIO.ctx) return;
+    const c = PP_AUDIO.ctx, o = c.createOscillator(), g = c.createGain();
+    o.type = type || 'sine'; o.frequency.setValueAtTime(Math.max(25, freq), c.currentTime);
+    if (endFreq) o.frequency.exponentialRampToValueAtTime(Math.max(25, endFreq), c.currentTime + duration);
+    g.gain.setValueAtTime(0.0001, c.currentTime);
+    g.gain.exponentialRampToValueAtTime(Math.max(0.0002, volume), c.currentTime + 0.025);
+    g.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + duration);
+    o.connect(g); g.connect(dest || PP_AUDIO.sfx); o.start(); o.stop(c.currentTime + duration + 0.03);
+  }
+  function ppNoise(duration, volume, filterFreq, dest) {
+    if (!PP_AUDIO.ctx) return;
+    const c = PP_AUDIO.ctx, n = Math.floor(c.sampleRate * duration), b = c.createBuffer(1, n, c.sampleRate), d = b.getChannelData(0);
+    for (let i=0;i<n;i++) d[i] = (Math.random()*2-1) * (1-i/n);
+    const src = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
+    src.buffer=b; f.type='lowpass'; f.frequency.value=filterFreq;
+    g.gain.setValueAtTime(volume,c.currentTime); g.gain.exponentialRampToValueAtTime(0.0001,c.currentTime+duration);
+    src.connect(f); f.connect(g); g.connect(dest || PP_AUDIO.sfx); src.start();
+  }
+  function ppMusicLoop() {
+    if (!PP_AUDIO.ctx) return;
+    const c=PP_AUDIO.ctx, now=c.currentTime;
+    // Original layered survival-horror score: sub-bass drone, dissonant strings,
+    // distant metallic tones and irregular heartbeat-like impacts.
+    ppTone(38.9,4.1,'sine',0.075,PP_AUDIO.music,37.2);
+    ppTone(41.2,3.8,'triangle',0.035,PP_AUDIO.music,43.65);
+    ppTone(46.25,3.2,'sawtooth',0.014,PP_AUDIO.music,41.2);
+    ppTone(110,2.7,'sawtooth',0.012,PP_AUDIO.music,103.8);
+    ppTone(164.8,2.2,'triangle',0.018,PP_AUDIO.music,155.6);
+    // Uneven low heartbeat / distant impact pattern.
+    const beat = (delay, strength) => {
+      const t=c.currentTime+delay, o=c.createOscillator(), g=c.createGain();
+      o.type='sine'; o.frequency.setValueAtTime(62,t); o.frequency.exponentialRampToValueAtTime(35,t+.24);
+      g.gain.setValueAtTime(.0001,t); g.gain.exponentialRampToValueAtTime(strength,t+.025);
+      g.gain.exponentialRampToValueAtTime(.0001,t+.31);
+      o.connect(g); g.connect(PP_AUDIO.music); o.start(t); o.stop(t+.34);
+    };
+    beat(.05,.095); beat(.22,.045); beat(1.55,.07); beat(1.76,.035);
+    // Thin, unsettling high note that bends out of tune.
+    ppTone(622.25,1.9,'sine',0.009,PP_AUDIO.music,587.3);
+    // A gust of filtered wind beneath the score.
+    ppNoise(3.5,.018,380,PP_AUDIO.music);
+    window.setTimeout(()=>{ if(PP_AUDIO.ctx && !document.hidden) ppMusicLoop(); },3600);
+  }
+  function ppSfx(kind) {
+    if (!PP_AUDIO.ctx) return;
+    if (kind==='pumpkin') { ppTone(620,.13,'sine',.12); ppTone(930,.22,'triangle',.075); }
+    else if (kind==='step') { ppNoise(.075,.055,420); ppTone(72,.07,'triangle',.035); }
+    else if (kind==='key') { ppTone(440,.35,'sine',.12); ppTone(660,.42,'sine',.10); ppTone(880,.5,'triangle',.08); }
+    else if (kind==='door') { ppNoise(.65,.16,260); ppTone(95,.5,'sawtooth',.045,PP_AUDIO.sfx,55); }
+    else if (kind==='ghost') { ppTone(174,.95,'sawtooth',.055,PP_AUDIO.sfx,48); ppTone(92,1.1,'sine',.06,PP_AUDIO.sfx,39); ppNoise(.9,.045,520); }
+    else if (kind==='witch') { ppTone(740,.75,'sawtooth',.045,PP_AUDIO.sfx,125); ppTone(260,1.0,'square',.035,PP_AUDIO.sfx,58); ppNoise(.8,.04,900); }
+    else if (kind==='caught') {
+      // Sudden horror sting: low impact, distorted descending shriek and breathy noise.
+      ppNoise(.42,.16,1150); ppTone(118,.72,'sawtooth',.13,PP_AUDIO.sfx,31);
+      ppTone(880,.38,'sawtooth',.055,PP_AUDIO.sfx,145);
+      ppTone(54,.9,'sine',.16,PP_AUDIO.sfx,28); ppNoise(.85,.075,420);
+    }
+    else if (kind==='witchCaught') {
+      ppNoise(.35,.12,1700); ppTone(960,.62,'sawtooth',.075,PP_AUDIO.sfx,72);
+      ppTone(66,.8,'square',.08,PP_AUDIO.sfx,30); ppNoise(.7,.07,620);
+    }
+    else if (kind==='gift') { ppTone(523,.18,'sine',.09); ppTone(659,.2,'sine',.09); ppTone(784,.3,'sine',.09); }
+  }
+  function ppAudioFrame(dt, nearest) {
+    if (!PP_AUDIO.ctx) return;
+    PP_AUDIO.stepT -= dt;
+    if ((state.mode==='playing' || state.mode==='mp') && (keys[bindings.forward]||keys[bindings.backward]||keys[bindings.left]||keys[bindings.right]||Math.abs(touch.mx)+Math.abs(touch.my)>.15) && PP_AUDIO.stepT<=0) {
+      ppSfx('step'); PP_AUDIO.stepT=.38;
+    }
+    PP_AUDIO.ambienceT -= dt;
+    if (PP_AUDIO.ambienceT<=0 && nearest<24) {
+      ppSfx(cur().kind==='witch'?'witch':'ghost'); PP_AUDIO.ambienceT=cur().kind==='witch'?2.7:2.1;
+    }
+    PP_AUDIO.lastNear=nearest;
+  }
+  function ppSetAudioVolumes() {
+    PP_AUDIO.musicVol=Number(document.getElementById('musicVolume').value);
+    PP_AUDIO.sfxVol=Number(document.getElementById('sfxVolume').value);
+    if(PP_AUDIO.music) PP_AUDIO.music.gain.setTargetAtTime(PP_AUDIO.musicVol,PP_AUDIO.ctx.currentTime,.05);
+    if(PP_AUDIO.sfx) PP_AUDIO.sfx.gain.setTargetAtTime(PP_AUDIO.sfxVol,PP_AUDIO.ctx.currentTime,.05);
+    try { localStorage.setItem('pp-music-volume',PP_AUDIO.musicVol); localStorage.setItem('pp-sfx-volume',PP_AUDIO.sfxVol); } catch(e) {}
+  }
+  ['pointerdown','keydown','touchstart'].forEach(ev=>document.addEventListener(ev,ppAudioStart,{once:true,passive:true}));
+  try { PP_AUDIO.musicVol=Number(localStorage.getItem('pp-music-volume')??.48); PP_AUDIO.sfxVol=Number(localStorage.getItem('pp-sfx-volume')??.82); } catch(e) {}
+  document.getElementById('musicVolume').value=PP_AUDIO.musicVol;
+  document.getElementById('sfxVolume').value=PP_AUDIO.sfxVol;
+  document.getElementById('musicVolume').addEventListener('input',ppSetAudioVolumes);
+  document.getElementById('sfxVolume').addEventListener('input',ppSetAudioVolumes);
+
   function collect(p) {
+    ppAudioStart(); ppSfx('pumpkin');
     p.state = 'pop'; p.t = 0;
     burst(p.x, 1.4, p.z);
     state.score++;
@@ -1788,6 +1925,7 @@
 
   // all remaining pumpkin energy streams into one glowing key
   function startForge() {
+    ppAudioStart(); ppSfx('key');
     state.phase = 'forge'; forgeT = 0;
     pumpkins.forEach((p) => {
       if (p.state === 'idle' || p.state === 'in') { p.state = 'fly'; p.t = -rand(0, 0.3); p.fx = p.x; p.fz = p.z; }
@@ -1921,7 +2059,7 @@
         }
         if (g.appear > 0.8 && dist < CFG.catchDist) {
           if (MP && MP.active) { if (pl.peer) mpCatch(pl.peer, g); }
-          else { gameOver('ghost'); state.alive = alive; return nearest; }
+          else { gameOver(g.kind === 'witch' ? 'witch' : 'ghost'); state.alive = alive; return nearest; }
         }
       }
     }
@@ -2048,7 +2186,7 @@
       if (unlockT > 0.9) {                       // the door swings smoothly inward
         const k = Math.min(1, (unlockT - 0.9) / 1.2), e = k * k * (3 - 2 * k);
         doorPivot.rotation.y = 1.75 * e;
-        if (e > 0.35 && !doorOpen) { doorOpen = true; showToast('Door open! Go inside for your gift'); }
+        if (e > 0.35 && !doorOpen) { doorOpen = true; ppSfx('door'); showToast('Door open! Go inside for your gift'); }
       }
       if (unlockT > 2.1 && giftOpenT < 0) {      // the mystery gift pops up on the table inside the house
         if (!gift.visible) { gift.visible = true; burst(0, 2, -44.6, undefined, 24); showToast('Walk in and open the gift!'); }
@@ -2056,7 +2194,7 @@
         gift.position.set(0, 1.04, -44.6);
         gift.scale.setScalar(Math.max(0.01, 1 + c3 * Math.pow(k - 1, 3) + c1 * Math.pow(k - 1, 2)) * 0.75);
         gift.rotation.y += dt * 1.5;
-        if (unlockT > 2.6 && Math.hypot(pl.x, pl.z + 44.6) < 2.6) { giftOpenT = 0; burst(0, 2.2, -44.6, undefined, 30); showToast('Mystery gift!'); }
+        if (unlockT > 2.6 && Math.hypot(pl.x, pl.z + 44.6) < 2.6) { ppSfx('gift'); giftOpenT = 0; burst(0, 2.2, -44.6, undefined, 30); showToast('Mystery gift!'); }
       } else if (giftOpenT >= 0) {               // reaching the gift opens it, then the round is complete
         giftOpenT += dt;
         const k = Math.min(1, giftOpenT / 0.6);
@@ -2105,6 +2243,7 @@
     grassU.uTime.value = state.t;
     fit();
     updateStormSky(dt);
+    updateBats(dt);
 
     let nearest = 99;
     if (state.mode === 'mp') {
@@ -2124,6 +2263,7 @@
       updatePumpkins(dt, false);
       animatePlayer(0, dt);
     }
+    ppAudioFrame(dt, nearest);
     if (state.mode === 'won' && gift.visible) gift.rotation.y += dt * 1.5;
 
     beam.material.opacity = 0.17 + Math.sin(state.t * 4) * 0.05;
